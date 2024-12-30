@@ -317,3 +317,88 @@ int main() {
 
 With this canary value, overwriting name(8byte) + canary(8byte) + rbp(8byte) + ret(8byte) is possible
 
+## NX & ASLR
+
+### NX 
+
+NX: No-eXecutable -> Seperates memory space for execution from memory space for write <br>
+
+When NX is enabled..
+
+```
+         Start                End Perm     Size Offset File
+      0x400000           0x401000 r--p     1000      0 /home/dreamhack/nx
+      0x401000           0x402000 r-xp     1000   1000 /home/dreamhack/nx
+      0x402000           0x403000 r--p     1000   2000 /home/dreamhack/nx
+      0x403000           0x404000 r--p     1000   2000 /home/dreamhack/nx
+      0x404000           0x405000 rw-p     1000   3000 /home/dreamhack/nx
+0x7ffff7d7f000     0x7ffff7d82000 rw-p     3000      0 [anon_7ffff7d7f]
+0x7ffff7d82000     0x7ffff7daa000 r--p    28000      0 /usr/lib/x86_64-linux-gnu/libc.so.6
+0x7ffff7daa000     0x7ffff7f3f000 r-xp   195000  28000 /usr/lib/x86_64-linux-gnu/libc.so.6
+0x7ffff7f3f000     0x7ffff7f97000 r--p    58000 1bd000 /usr/lib/x86_64-linux-gnu/libc.so.6
+0x7ffff7f97000     0x7ffff7f9b000 r--p     4000 214000 /usr/lib/x86_64-linux-gnu/libc.so.6
+0x7ffff7f9b000     0x7ffff7f9d000 rw-p     2000 218000 /usr/lib/x86_64-linux-gnu/libc.so.6
+```
+
+No execution capability except code section
+
+### ASLR
+
+ASLR: Allocates stack, heap, shared library, etc into arbitrary memory address whenever binary is executed <br>
+
+```
+$ ./addr
+buf_stack addr: 0x7ffcd3fcffc0
+buf_heap addr: 0xb97260
+libc_base addr: 0x7fd7504cd000
+printf addr: 0x7fd750531f00
+main addr: 0x400667
+$ ./addr
+buf_stack addr: 0x7ffe4c661f90
+buf_heap addr: 0x176d260
+libc_base addr: 0x7ffad9e1b000
+printf addr: 0x7ffad9e7ff00
+main addr: 0x400667
+$ ./addr
+buf_stack addr: 0x7ffcf2386d80
+buf_heap addr: 0x840260
+libc_base addr: 0x7fed2664b000
+printf addr: 0x7fed266aff00
+main addr: 0x400667
+```
+
+Address of every function except **main**(in code section) always changes. <br>
+Lower 12 bits of the **libc_base** and **printf** address is not changed(due to paging of linux) <br>
+Distance between **libc_base** and **printf** is always same. 
+
+### Library
+
+Library: enables sharing functions that are used often in common for efficiency <br>
+
+### Link
+
+Linking -> usually last step of compiling. If the program uses functions from library, those functions are actually linked to libary <br>
+
+In linux, C code => preprocess, compilation, assembly => translated into ELF object file. 
+
+```
+gcc -c hello-world.c -o hello-world.o
+```
+
+object file has executable format, but doesn't have information about location of functions. <br>
+In linkage procedure, linker matches symbols used in the program with actual defenitions. <br>
+
+Dynamic linking: When binary is executed, dynamic library is mapped into process's memory. <br>
+Static linking: Static linked binary includes all the functions of library -> doesn't need outer library 
+
+### PLT & GOT
+
+PLT(Procedure Linkage Table), GOT(Global Offset Table) -> Used to find dynamically linked symbol <br>
+GOT -> table for address of **resolved** functions <br>
+
+At first, GOT is empty -> PLT calls dynamic linker, write GOT with actual address <br>
+
+### Return To Library
+
+
+
