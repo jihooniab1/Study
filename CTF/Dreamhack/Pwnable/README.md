@@ -53,11 +53,11 @@ read(fd, buf, 0x30);
 write(1, buf, 0x30);
 ```
 
-| syscall | rax  | arg0 (rdi)            | arg1 (rsi) | arg2 (rdx)            |<br>
-|---------|------|-----------------------|------------|-----------------------| <br>
-| read    | 0x0  | unsigned int fd       | char *buf  | size_t count          | <br>
-| write   | 0x1  | unsigned int fd       | char *buf  | size_t count          | <br>
-| open    | 0x2  | char *filename        | int flag   | umode_t mode          | <br>
+| syscall | rax  | arg0 (rdi)       | arg1 (rsi) | arg2 (rdx)         | <br>
+|---------|------|------------------|------------|--------------------| <br>
+| read    | 0x0  | unsigned int fd  | char *buf  | size_t count       | <br>
+| write   | 0x1  | unsigned int fd  | char *buf  | size_t count       | <br>
+| open    | 0x2  | char *filename   | int flag   | umode_t mode       | <br>
 
 #### 1. int fd = open("/tmp/flag", RD_ONLY, NULL)
 First, string "/tmp/flag" should be on the memory. -> push <br>
@@ -142,9 +142,9 @@ int main() { run_sh(); }
 
 Only uses execve systemcall: execve("/bin/sh",null,null) <br>
 
-| syscall | rax  | arg0 (rdi)            | arg1 (rsi)     | arg2 (rdx)              | <br>
-|---------|------|-----------------------|----------------|-------------------------| <Br>
-| execve  | 0x3b | char *filename        | char *argv     | char *const *envp       |
+| syscall | rax  | arg0 (rdi)     | arg1 (rsi) | arg2 (rdx)           | <br>
+|---------|------|----------------|------------|----------------------| <br>
+| execve  | 0x3b | char *filename | char *argv | char *const *envp    |
 
 ```
 mov rax, 0x68732f6e69622f
