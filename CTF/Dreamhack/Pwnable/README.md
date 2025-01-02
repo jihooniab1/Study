@@ -2,6 +2,15 @@
 
 Reminding system hacking basic things. 
 
+## Index
+- [1. Linux Memory Layout](#linux-memory-layout)
+- [2. Shell code](#shell-code)
+- [3. Stack BOF](#stack-buffer-overflow)
+- [4. NX & ASLR](#nx--aslr)
+- [5. PIE & RELRO](#pie--relro)
+- [6. Memory Corruption](#memory-corruption)
+
+
 ## Linux Memory Layout
 Linux: Divide process's memory into largely 5 segments -> (code, data, bss, heap, stack)
 
@@ -236,7 +245,7 @@ int main(void) {
 
 buf + saved_rbp(8byte) + ret(8byte) -> can overwrite return address
 
-## Stack Canary
+### Stack Canary
 
 Stack canary: Inserts random value between stack buffer and return address. In the function's epilogue, <br>
 it checks for any modification of this value. If altered, process is terminated.
