@@ -541,7 +541,7 @@ OOB: Occurs when index value is below zero or exceed array size <br>
 
 OOB -> can lead to arbitrary read, write
 
-## Format String Bug
+### Format String Bug
 
 Format specifier: %n, %c, %s.... <br>
 %n: Calculate the number of printed characters <br>
@@ -566,4 +566,10 @@ According to x64-64 convention, after rdi, **rsi, rdx, rcx, r8, r9, [rsp], [rsp+
 Using this... can perform arbitrary read, write <br>
 
 read -> %[n]$s , write -> %[n]$n <br>
+
+### Use After Free
+
+#### ptmalloc2
+
+ptmalloc2: Linux memory allocator <br>
 
