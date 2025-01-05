@@ -9,6 +9,8 @@ Reminding system hacking basic things.
 - [4. NX & ASLR](#nx--aslr)
 - [5. PIE & RELRO](#pie--relro)
 - [6. Memory Corruption](#memory-corruption)
+  - [6.1 Use After Free](#use-after-free-1)
+  - [6.2 Double Free Bug](#double-free-bug)
 
 
 ## Linux Memory Layout
@@ -572,4 +574,95 @@ read -> %[n]$s , write -> %[n]$n <br>
 #### ptmalloc2
 
 ptmalloc2: Linux memory allocator <br>
+
+Main Features: <br>
+  1. Prevent memory waste
+  2. Fast memory reuse
+  3. Prevent Memory Fragmentation 
+
+#### Chunk 
+
+Chunk Structure
+
+![Chunk Structure](./images/chunk.png)
+ 
+header of **in-use** chunk and **freed** chunk is different <br>
+
+in-use chunk: does not use **fd**, **bk**. Use that area for data <br> 
+
+| Name      | Size     | Meaning                                                                                                 |
+|-----------|----------|---------------------------------------------------------------------------------------------------------|
+| prev_size | 8 bytes  | Size of the immediately preceding (adjacent) chunk. Used to locate and merge with the previous chunk.   |
+| size      | 8 bytes  | Size of the current chunk (including its header). In 64-bit systems, the header typically adds 16 bytes. |
+| flags     | 3 bits   | Lower bits of `size` used for chunk management flags. Common flags: Allocated arena (A), Mmap’d (M), and Prev in use (P). |
+| fd        | 8 bytes  | Points to the next chunk in the free list. Only present in freed chunks.                                 |
+| bk        | 8 bytes  | Points to the previous chunk in the free list. Only present in freed chunks.                             |
+
+#### Bin
+
+bin: Object for storing used chunks, for memory waste prevention and fast reuse <br>
+
+![bin structure](./images/bin.png)
+
+##### smallbin
+
+**32 byte ~ 1024 byte**
+
+Each smallbin contains same size of chunks. For each index, size of chunk gets bigger 16 bytes. smallbin[0]: 32, smallbin[61]:1008.. <br>
+
+smallbin: circular doubly-linked list, **FIFO**. <br>
+
+**unlink**: Procedure for adding or removing chunk from list <br>
+ 
+In smallbin, when two adjacent chunks in memory are freed, they will be **merged** <br>
+
+##### fastbin
+
+**32 byte ~ 176 byte**
+
+There are 10 fastbins. Linux only use 7(**32~128**). **LIFO**(no unlink, single linked list) <br>
+
+Last freed chunk first allocated. No merge
+
+##### largebin
+
+**1024byte~**
+
+doubly-linked list, **unlink**, There are 63 largebins. Merge happens 
+
+##### unsortedbin
+
+Only one. Chunks that does not go into fastbin all stored in unsortedbin. <br>
+
+Unsortedbin: circular doubly-linked list <br>
+
+When smallbin size chunk allocation requested: search fastbin, smallbin -> unsortedbin <br>
+
+When largebin size chunk allocation requested: First search unsortedbin -> When searching unsortedbin... sort chunks to corresponding bins <br>
+
+##### arena
+
+arena: Object that holds information about fastbin, smallbin, largebin, etc. <br>
+
+In glibc 2.26, tcache was additionally introduced. 
+
+##### tcache
+
+**32byte~1024byte**
+
+tcache: thread local cache. Refers to a cache storage that is allocated independently for each thread. <br>
+
+Each thread has 64 tcaches. **LIFO single linked list**. One tcache contains same size of chunk. In Linux, each tcache can contain up to 7 chunks. <br>
+
+#### Use After Free
+
+Use-After-Free: Not properly initialized freed pointer, Reallocating not initialized freed memory <br>
+
+Dangling Pointer: Pointer that pointing invalid memory. When pointer not initialized, it becomes dangling pointer <br>
+
+With dangling pointer, **Double free** can happen 
+
+#### Double Free Bug
+
+double free = Inserting same chunk in **free list** multiple time -> duplicated <br>
 
