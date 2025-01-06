@@ -1,4 +1,4 @@
-# System hacking basic
+     # System hacking basic
 
 Reminding system hacking basic things. 
 
@@ -666,3 +666,87 @@ With dangling pointer, **Double free** can happen
 
 double free = Inserting same chunk in **free list** multiple time -> duplicated <br>
 
+fd: next chunk, bk: previous chunk -> if fd, bk can be compromised, it can lead to arbitrary address read, write <br>
+
+#### tcache DFB mitigation
+
+tcache_entry, we can find **key** added in tcache_entry
+```
+typedef struct tcache_entry
+{
+  struct tcache_entry *next;
+  /* This field exists to detect double frees.  */
+  uintptr_t key;
+} tcache_entry;
+```
+
+tcache_put: insert freed chunk into tcache. Set **e->key** into **tcache**(pointing tcache_perthread)
+```
+static __always_inline void
+tcache_put (mchunkptr chunk, size_t tc_idx)
+{
+  tcache_entry *e = (tcache_entry *) chunk2mem (chunk);
+
+  /* Mark this chunk as "in the tcache" so the test in _int_free will
+     detect a double free.  */
+  e->key = tcache_key;
+
+  e->next = PROTECT_PTR (&e->next, tcache->entries[tc_idx]);
+  tcache->entries[tc_idx] = e;
+  ++(tcache->counts[tc_idx]);
+}
+```
+
+tcache_get: A function used to allocate chunks stored in the tcache. Set **e->key** into NULL.
+```
+static __always_inline void *
+tcache_get_n (size_t tc_idx, tcache_entry **ep)
+{
+  tcache_entry *e;
+  if (ep == &(tcache->entries[tc_idx]))
+    e = *ep;
+  else
+    e = REVEAL_PTR (*ep);
+
+  if (__glibc_unlikely (!aligned_OK (e)))
+    malloc_printerr ("malloc(): unaligned tcache chunk detected");
+
+  if (ep == &(tcache->entries[tc_idx]))
+      *ep = REVEAL_PTR (e->next);
+  else
+    *ep = PROTECT_PTR (ep, REVEAL_PTR (e->next));
+
+  --(tcache->counts[tc_idx]);
+  e->key = 0;
+  return (void *) e;
+}
+```
+
+tcache_free: When reallocated chunk's key is **tcache_key**, abort program
+```
+static inline bool
+tcache_free (mchunkptr p, INTERNAL_SIZE_T size)
+{
+  bool done = false;
+  size_t tc_idx = csize2tidx (size);
+  if (tcache != NULL && tc_idx < mp_.tcache_bins)
+    {
+      /* Check to see if it's already in the tcache.  */
+      tcache_entry *e = (tcache_entry *) chunk2mem (p);
+
+      /* This test succeeds on double free.  However, we don't 100%
+	 trust it (it also matches random payload data at a 1 in
+	 2^<size_t> chance), so verify it's not an unlikely
+	 coincidence before aborting.  */
+      if (__glibc_unlikely (e->key == tcache_key))
+	tcache_double_free_verify (e, tc_idx);
+
+      if (tcache->counts[tc_idx] < mp_.tcache_count)
+	{
+	  tcache_put (p, tc_idx);
+	  done = true;
+	}
+    }
+  return done;
+}
+```
