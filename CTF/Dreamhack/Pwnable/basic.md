@@ -17,7 +17,7 @@ Reminding system hacking basic things.
 Linux: Divide process's memory into largely 5 segments -> (code, data, bss, heap, stack)
 
 ### Code
-Segment for 'exeuctable' machine code. Also known as Text Segment. <br>
+Segment for 'executable' machine code. Also known as Text Segment. <br>
 Doesn't have execute capability in most cases. 
 
 ### Data 
