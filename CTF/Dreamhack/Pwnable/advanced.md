@@ -5,6 +5,7 @@ Studying system hacking advanced things.
 ## Index
 - [1. seccomp](#seccomp)
 - [2. Master Canary](#master-canary)
+- [3. Linux Library exploit](#linux-library-exploit)
 
 ## seccomp
 
@@ -522,3 +523,59 @@ typedef struct
 } tcbhead_t;
 ```
 
+## Linux Library exploit
+Let's analyze how processes are terminated. (Based on Ubuntu 18.04, Glibc 2.27)
+
+### _rtld_global
+#### __GI_exit
+When terminating program, lot's of internal code is executed. <br>
+main finish -> **__GI_exit** -> **__run_exit_handlers**
+```
+=> 0x7ffff7a25240 <__GI_exit>:	lea    rsi,[rip+0x3a84d1]        # 0x7ffff7dcd718 <__exit_funcs>
+   0x7ffff7a25247 <__GI_exit+7>:	sub    rsp,0x8
+   0x7ffff7a2524b <__GI_exit+11>:	mov    ecx,0x1
+   0x7ffff7a25250 <__GI_exit+16>:	mov    edx,0x1
+   0x7ffff7a25255 <__GI_exit+21>:	call   0x7ffff7a24ff0 <__run_exit_handlers>
+```
+#### __run_exit_handlers
+```
+void
+attribute_hidden
+__run_exit_handlers (int status, struct exit_function_list **listp,
+		     bool run_list_atexit, bool run_dtors)
+{
+	  const struct exit_function *const f = &cur->fns[--cur->idx];
+	  switch (f->flavor)
+	    {
+	      void (*atfct) (void);
+	      void (*onfct) (int status, void *arg);
+	      void (*cxafct) (void *arg, int status);
+	    case ef_free:
+	    case ef_us:
+	      break;
+	    case ef_on:
+	      onfct = f->func.on.fn;
+#ifdef PTR_DEMANGLE
+	      PTR_DEMANGLE (onfct);
+#endif
+	      onfct (status, f->func.on.arg);
+	      break;
+	    case ef_at:
+	      atfct = f->func.at;
+#ifdef PTR_DEMANGLE
+	      PTR_DEMANGLE (atfct);
+#endif
+	      atfct ();
+	      break;
+	    case ef_cxa:
+	      cxafct = f->func.cxa.fn;
+#ifdef PTR_DEMANGLE
+	      PTR_DEMANGLE (cxafct);
+#endif
+	      cxafct (f->func.cxa.arg, status);
+	      break;
+	    }
+	}
+
+```
+Calling function pointer according to member variable of **exit_function** struct. 
