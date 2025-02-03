@@ -578,4 +578,171 @@ __run_exit_handlers (int status, struct exit_function_list **listp,
 	}
 
 ```
-Calling function pointer according to member variable of **exit_function** struct. 
+Calling function pointer according to member variable of **exit_function** struct. Below is struct code. When program terminates, **_dl_fini** is called.
+```
+struct exit_function
+{
+/* `flavour' should be of type of the `enum' above but since we need
+   this element in an atomic operation we have to use `long int'.  */
+long int flavor;
+union
+  {
+void (*at) (void);
+struct
+  {
+    void (*fn) (int status, void *arg);
+    void *arg;
+  } on;
+struct
+{
+    void (*fn) (void *arg, int status);
+    void *arg;
+    void *dso_handle;
+  } cxa;
+  } func;
+};
+```
+
+#### _dl_fini
+Below is part of **_dl_fini** code located at loader. It calls **__rtld_lock_lock_recursive** with parameter using **_dl_load_lock**. -> function pointer named **dl_rtld_lock_recursive** 
+```
+# define __rtld_lock_lock_recursive(NAME) \
+  GL(dl_rtld_lock_recursive) (&(NAME).mutex)
+  
+void
+_dl_fini (void)
+{
+#ifdef SHARED
+  int do_audit = 0;
+ again:
+#endif
+  for (Lmid_t ns = GL(dl_nns) - 1; ns >= 0; --ns)
+    {
+      /* Protect against concurrent loads and unloads.  */
+      __rtld_lock_lock_recursive (GL(dl_load_lock));
+```
+
+#### _rtld_global
+**_dl_rtld_lock_recursive** function pointer is holding address of **rtld_lock_default_lock_recursive**. Area where function pointer locates have read, write privilege -> Can overwrite 
+```
+gdb-peda$ p _rtld_global
+_dl_load_lock = {
+    mutex = {
+      __data = {
+        __lock = 0x0, 
+        __count = 0x0, 
+        __owner = 0x0, 
+        __nusers = 0x0, 
+        __kind = 0x1, 
+        __spins = 0x0, 
+        __elision = 0x0, 
+        __list = {
+          __prev = 0x0, 
+          __next = 0x0
+        }
+      }, 
+      __size = '\000' <repeats 16 times>, "\001", '\000' <repeats 22 times>, 
+      __align = 0x0
+    }
+  },
+  _dl_rtld_lock_recursive = 0x7ffff7dd60e0 <rtld_lock_default_lock_recursive>, 
+  ...
+}
+gdb-peda$ p &_rtld_global._dl_rtld_lock_recursive
+$2 = (void (**)(void *)) 0x7ffff7ffdf60 <_rtld_global+3840>
+gdb-peda$ vmmap 0x7ffff7ffdf60
+Start              End                Perm	Name
+0x00007ffff7ffd000 0x00007ffff7ffe000 rw-p	/lib/x86_64-linux-gnu/ld-2.27.so
+
+```
+#### _rtld_global initialization
+Below code is part of **dl_main**, can find **dl_rtld_lock_recursive** function pointer is initialized.
+```
+static void
+dl_main (const ElfW(Phdr) *phdr,
+	 ElfW(Word) phnum,
+	 ElfW(Addr) *user_entry,
+	 ElfW(auxv_t) *auxv)
+{
+  GL(dl_init_static_tls) = &_dl_nothread_init_static_tls;
+#if defined SHARED && defined _LIBC_REENTRANT \
+    && defined __rtld_lock_default_lock_recursive
+  GL(dl_rtld_lock_recursive) = rtld_lock_default_lock_recursive;
+  GL(dl_rtld_unlock_recursive) = rtld_lock_default_unlock_recursive;
+```
+
+## SigReturn-Oriented Programming
+### Signal
+OS -> Devided into **User Mode** and **Kernel Mode**. <br>
+Signal -> Medium for information transmission to a process(ex: SIGSEGV). When signal occur, corresponding code executes in **kernel mode** and then return to **user mode**.
+```
+#include<stdio.h>
+#include<unistd.h>
+#include<signal.h>
+#include<stdlib.h>
+ 
+void sig_handler(int signum){
+  printf("sig_handler called.\n");
+  exit(0);
+}
+int main(){
+  signal(SIGALRM,sig_handler);
+  alarm(5);
+  getchar();
+  return 0;
+}
+```
+When **SIGALRM** signal occur -> executes **sig_handler** function. Looks like user mode doing everything, but when signal occur enters kernel mode. <br>
+After dealing with signal in kernel mode, return to user mode and proceed process code. => Have to remember user mode state(memory, register..)
+
+### do_signal
+do_signal: First called to deal with signal. **arch_do_signal_or_restart** in recent kernel. When signal occur, calls **get_signal** using information of signal as parameter. <br>
+get_signal: Check if matching handler is registered. If registered, call **handle_signal** using signal information and reg information as parameter. 
+
+```
+void arch_do_signal_or_restart(struct pt_regs *regs, bool has_signal)
+{
+	struct ksignal ksig;
+	if (has_signal && get_signal(&ksig)) {
+		/* Whee! Actually deliver the signal.  */
+		handle_signal(&ksig, regs);
+		return;
+	}
+	/* Did we come from a system call? */
+	if (syscall_get_nr(current, regs) >= 0) {
+		/* Restart the system call - no handlers present */
+		switch (syscall_get_error(current, regs)) {
+		case -ERESTARTNOHAND:
+		case -ERESTARTSYS:
+		case -ERESTARTNOINTR:
+			regs->ax = regs->orig_ax;
+			regs->ip -= 2;
+			break;
+		case -ERESTART_RESTARTBLOCK:
+			regs->ax = get_nr_restart_syscall(regs);
+			regs->ip -= 2;
+			break;
+		}
+	}
+	/*
+	 * If there's no signal to deliver, we just put the saved sigmask
+	 * back.
+	 */
+	restore_saved_sigmask();
+}
+```
+
+### handle_signal
+Below code is part of **handle_signal**, calling **setup_rt_frame**.
+```
+static void
+handle_signal(struct ksignal *ksig, struct pt_regs *regs)
+{
+    ...
+	failed = (setup_rt_frame(ksig, regs) < 0);
+	if (!failed) {
+		fpu__clear_user_states(fpu);
+	}
+	signal_setup_done(failed, ksig, stepping);
+}
+```
