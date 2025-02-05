@@ -695,7 +695,7 @@ int main(){
 When **SIGALRM** signal occur -> executes **sig_handler** function. Looks like user mode doing everything, but when signal occur enters kernel mode. <br>
 After dealing with signal in kernel mode, return to user mode and proceed process code. => Have to remember user mode state(memory, register..)
 
-### do_signal
+#### do_signal
 do_signal: First called to deal with signal. **arch_do_signal_or_restart** in recent kernel. When signal occur, calls **get_signal** using information of signal as parameter. <br>
 get_signal: Check if matching handler is registered. If registered, call **handle_signal** using signal information and reg information as parameter. 
 
@@ -732,7 +732,7 @@ void arch_do_signal_or_restart(struct pt_regs *regs, bool has_signal)
 }
 ```
 
-### handle_signal
+#### handle_signal
 Below code is part of **handle_signal**, calling **setup_rt_frame**.
 ```
 static void
@@ -746,3 +746,147 @@ handle_signal(struct ksignal *ksig, struct pt_regs *regs)
 	signal_setup_done(failed, ksig, stepping);
 }
 ```
+
+Let's look at **setup_rt_frame**.
+
+```
+int x64_setup_rt_frame(struct ksignal *ksig, struct pt_regs *regs)
+{
+	...
+
+	/* Set up registers for signal handler */
+	regs->di = ksig->sig;
+	/* In case the signal handler was declared without prototypes */
+	regs->ax = 0;
+
+	/* This also works for non SA_SIGINFO handlers because they expect the
+	   next argument after the signal number on the stack. */
+	regs->si = (unsigned long)&frame->info;
+	regs->dx = (unsigned long)&frame->uc;
+	regs->ip = (unsigned long) ksig->ka.sa.sa_handler;
+
+	regs->sp = (unsigned long)frame;
+
+	/*
+	 * Set up the CS and SS registers to run signal handlers in
+	 * 64-bit mode, even if the handler happens to be interrupting
+	 * 32-bit or 16-bit code.
+	 *
+	 * SS is subtle.  In 64-bit mode, we don't need any particular
+	 * SS descriptor, but we do need SS to be valid.  It's possible
+	 * that the old SS is entirely bogus -- this can happen if the
+	 * signal we're trying to deliver is #GP or #SS caused by a bad
+	 * SS value.  We also have a compatibility issue here: DOSEMU
+	 * relies on the contents of the SS register indicating the
+	 * SS value at the time of the signal, even though that code in
+	 * DOSEMU predates sigreturn's ability to restore SS.  (DOSEMU
+	 * avoids relying on sigreturn to restore SS; instead it uses
+	 * a trampoline.)  So we do our best: if the old SS was valid,
+	 * we keep it.  Otherwise we replace it.
+	 */
+	regs->cs = __USER_CS;
+}
+```
+
+regs->ip => Inserting the address of handler into next instruction. 
+
+### sigreturn
+When **context switching** happens, kernel has to do **save** and **restore**. -> syscall **sigreturn** is used. <br>
+Below code is **restore_sigcontext**, when sigreturn syscall is called, it internally calls restore_sigcontext to return to user mode. 
+```
+static bool restore_sigcontext(struct pt_regs *regs,
+			       struct sigcontext __user *usc,
+			       unsigned long uc_flags)
+{
+	struct sigcontext sc;
+
+	/* Always make any pending restarted system calls return -EINTR */
+	current->restart_block.fn = do_no_restart_syscall;
+
+	if (copy_from_user(&sc, usc, CONTEXT_COPY_SIZE))
+		return false;
+
+#ifdef CONFIG_X86_32
+	set_user_gs(regs, sc.gs);
+	regs->fs = sc.fs;
+	regs->es = sc.es;
+	regs->ds = sc.ds;
+#endif /* CONFIG_X86_32 */
+
+	regs->bx = sc.bx;
+	regs->cx = sc.cx;
+	regs->dx = sc.dx;
+	regs->si = sc.si;
+	regs->di = sc.di;
+	regs->bp = sc.bp;
+	regs->ax = sc.ax;
+	regs->sp = sc.sp;
+	regs->ip = sc.ip;
+
+#ifdef CONFIG_X86_64
+	regs->r8 = sc.r8;
+	regs->r9 = sc.r9;
+	regs->r10 = sc.r10;
+	regs->r11 = sc.r11;
+	regs->r12 = sc.r12;
+	regs->r13 = sc.r13;
+	regs->r14 = sc.r14;
+	regs->r15 = sc.r15;
+#endif /* CONFIG_X86_64 */
+
+	/* Get CS/SS and force CPL3 */
+	regs->cs = sc.cs | 0x03;
+	regs->ss = sc.ss | 0x03;
+
+	regs->flags = (regs->flags & ~FIX_EFLAGS) | (sc.flags & FIX_EFLAGS);
+	/* disable syscall checks */
+	regs->orig_ax = -1;
+
+#ifdef CONFIG_X86_64
+	/*
+	 * Fix up SS if needed for the benefit of old DOSEMU and
+	 * CRIU.
+	 */
+	if (unlikely(!(uc_flags & UC_STRICT_RESTORE_SS) && user_64bit_mode(regs)))
+		force_valid_ss(regs);
+#endif
+
+	return fpu__restore_sig((void __user *)sc.fpstate,
+			       IS_ENABLED(CONFIG_X86_32));
+}
+```
+
+### SROP
+SROP: SigReturn-Oriented Programming (SROP) is ROP that use **sigreturn** syscall. -> Can manipulate every register. <br>
+Prepare values to copy to register in stack, and then call sigreturn
+
+```
+#include <string.h>
+
+int main()
+{
+        char buf[1024];
+        memset(buf, 0x41, sizeof(buf));
+
+        asm("mov $15, %rax;"
+            "syscall");
+}
+
+RBX: 0x4141414141414141 ('AAAAAAAA')
+RCX: 0x4141414141414141 ('AAAAAAAA')
+RDX: 0x4141414141414141 ('AAAAAAAA')
+RSI: 0x4141414141414141 ('AAAAAAAA')
+RDI: 0x4141414141414141 ('AAAAAAAA')
+RBP: 0x4141414141414141 ('AAAAAAAA')
+RSP: 0x4141414141414141 ('AAAAAAAA')
+RIP: 0x4141414141414141 ('AAAAAAAA')
+R8 : 0x4141414141414141 ('AAAAAAAA')
+R9 : 0x4141414141414141 ('AAAAAAAA')
+R10: 0x4141414141414141 ('AAAAAAAA')
+R11: 0x4141414141414141 ('AAAAAAAA')
+R12: 0x4141414141414141 ('AAAAAAAA')
+R13: 0x4141414141414141 ('AAAAAAAA')
+R14: 0x4141414141414141 ('AAAAAAAA')
+R15: 0x4141414141414141 ('AAAAAAAA')
+```
+
