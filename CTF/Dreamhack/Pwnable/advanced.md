@@ -1,7 +1,7 @@
-     # System hacking Advanced
+# System hacking Advanced
 
 Studying system hacking advanced things. 
-
+ 
 ## Index
 - [1. seccomp](#seccomp)
 - [2. Master Canary](#master-canary)

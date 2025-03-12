@@ -1,4 +1,4 @@
-     # System hacking basic
+# System hacking basic
 
 Reminding system hacking basic things. 
 
