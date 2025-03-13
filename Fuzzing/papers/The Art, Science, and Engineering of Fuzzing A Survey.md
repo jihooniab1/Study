@@ -66,4 +66,82 @@ Fuzz algorithm that sends streams of random bytes to the PUT => simple configura
 
 Sophisticated fuzzers contain algorithms that accept **a set of configurations** and evolve the set over time -> includes adding, removing configurations <br>
 
-For example, 
+For example, CERT BFF varies both **mutation ratio** and the **seed** over the course of a campaign => configuration space is form of {(PUT,s1,r1),(PUT,s2,r2)...} <br>
+
+Seed: Input to the PUT, used to generate test cases byv modifying it. Fuzzers typically maintain a collection of seeds => **seed pool** <br>
+
+Some fuzzers evolve the pool as the fuzz campaign progresses. <br>
+
+A fuzzer is able to store some data within each configuration => coverage-guided fuzzer: Store attained coverage in each configuration 
+
+### Fuzz Testing Algorithm
+-Algorithm 1-
+```
+Input: C, tlimit
+Output: B // a finite set of bugs
+B ← ∅
+C ← PREPROCESS(C)
+while telapsed < tlimit ∧ CONTINUE(C) do
+	conf ← SCHEDULE(C, telapsed, tlimit)
+	tcs ← INPUTGEN(conf)
+
+	// Obug is embedded in a fuzzer
+	B', execinfos ← INPUTEVAL(conf, tcs, Obug)
+	C ← CONFUPDATE(C, conf, execinfos)
+	B ← B ∪ B'
+return B
+```
+Algorithm 1: Generic algorithm for fuzz testing, which imagined to have been implemented in a **model fuzzer**. <br>
+
+Input: A set of fuzz configurations C , timeout t-limit <br>
+
+Output: A set of discovered bugs B <br>
+
+Part 1: **PREPROCESS** function, which executed at the beginning of a fuzz campaign. <br>
+
+Part 2: Loop with five functions => **SCHEDULE**, **INPUTGEN**, **INPUTEVAL**, **CONFUPDATE**, **CONTINUE** <br>
+
+Each iteration of loop => **fuzz iteration**. Each time **INPUTEVAL** executes PUT on a test case => **fuzz run** <br>
+
+#### PREPROCESS (C) -> C
+**PREPROCESS** + A set of fuzz configuration => Potentially-modified set of fuz configurations <br>
+
+Depending on the fuzz algorithm, **PREPROCESS** perform various action(ex: insert instrumentation code to PUT, measure exec speed of seed file)
+
+#### SCHEDULE (C, t-elapsed, t-limit) -> conf
+**SCHEDULE** + current set of fuzz configurations + current time t-elapsed + timeout t-limit => Select a fuzz configuration to be used for the current iteration
+
+#### INPUTGEN (conf) -> tcs
+**INPUTGEN** + fuzz configuration => A set of concrete test cases tcs <br>
+
+When generating tast cases, **INPUTGEN** uses specific parameter in conf. <br>
+
+Some fuzer use a seed in conf for generating test cases, other fuzzers use a model or grammars as a parameter 
+
+#### INPUTEVAL (conf, tcs, O-bug) -> B', execinfos
+**INPUTEVAL** + fuzz configuration conf + a set of test cases tcs => Check if the execution violate correctness policy using **Bug Oracle** <br>
+
+Output: Set of bugs found B' + information about each of the fuzz runs execinfos => Used to update the fuzz configurations 
+
+#### CONFUPDATE (C, conf, execinfos) -> C
+**CONFUPDATE** + A set of fuzz configurations C + current configuration conf + information about each run execinfos <br>
+
+=> Update the set of fuzz configurations C. Many grey-box fuzzers reduce the number of fuzz configurations in C based on execinfos
+
+#### CONTINUE (C) -> {TRUE, FALSE}
+**CONTINUE** + A set of fuzz configurations C => Decide whether a new fuzz iteration should occur. <br>
+
+Usefule to model white-box fuzzers that can terminate when there are no more paths to discover. 
+
+### Taxonomy of Fuzzers
+Categorized fuzzers into three groups(based on the granularity of semantics a fuzzer observes in each run) <br>
+
+#### Black-box Fuzzer
+black-box: Do not see the internals of the PUT, Can observe only the input/output behavior => **black box** <br>
+
+#### White-box Fuzzer
+White-box fuzzing: Generates test cases by analyzing the internals of the PUT + execinfo when executing PUT <br>
+
+Can explore the state space of the PUT systemically <br>
+
+Dynamic Symbolic Execution(variant of symbolic execution) => Symbolic and Concrete execution operate concurrently, where concrete program states
