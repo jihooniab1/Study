@@ -190,9 +190,9 @@ Instrumentation => Often the method that collects the most valuable feedback <br
 
 Program instrumentation: Static or Dynamic <br>
 
-Static: Happens before the PUT runs (**PREPROCESS**) <br>
+**Static**: Happens before the PUT runs (**PREPROCESS**) <br>
 
-Dynamic: Happens while the PUT is running (**INPUTEVAL**) <br>
+**Dynamic**: Happens while the PUT is running (**INPUTEVAL**) <br>
 
 1. Static Instrumentation <br>
 
