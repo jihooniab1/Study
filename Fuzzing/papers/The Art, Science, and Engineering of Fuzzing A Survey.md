@@ -2,15 +2,15 @@
 
 ## Index
 - [1. Introduction](#introduction)
-- [2. Systemization, Taxonomy, And Test Programs](#systemization-taxonomy-and-test-programs)
-    [2.1 Fuzzing & Fuzz Testing](#fuzzing--fuzz-testing)
-	[2.3 Fuzz Testing Algorithm](#fuzz-testing-algorithm)
-	[2.4 Taxonomy of Fuzzers](#taxonomy-of-fuzzers)
+- [2. Systemization, Taxonomy, And Test Programs](#systemization-taxonomy-and-test-programs) 
+	- [2.1 Fuzzing & Fuzz Testing](#fuzzing--fuzz-testing) 
+	- [2.3 Fuzz Testing Algorithm](#fuzz-testing-algorithm) 
+	- [2.4 Taxonomy of Fuzzers](#taxonomy-of-fuzzers)
 - [3. Preprocess](#preprocess)
-	[3.1 Instrumentation](#instrumentation)
-	[3.2 Seed Selection](#seed-selection)
-	[3.3 Seed Trimming](#seed-trimming)
-	[3.4 Preparing a Driver Application](#preparing-a-driver-application)
+	- [3.1 Instrumentation](#instrumentation)
+	- [3.2 Seed Selection](#seed-selection)
+	- [3.3 Seed Trimming](#seed-trimming)
+	- [3.4 Preparing a Driver Application](#preparing-a-driver-application)
 - [4. Scheduling](#scheduling)
 - [5. Input Generation]
 - [6. Input Evaluation]
