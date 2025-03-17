@@ -715,3 +715,148 @@ let rec sort l =
 Higher-order => Input, output with other function. Enables abstraction and reuse <br>
 
 ### map
+If we want to make a **map** function that applies a function to each element in a list
+```
+let rec map f l =
+    match l with
+    | [] -> []
+    | hd::tl -> (f hd)::(map f tl)
+```
+can be done like this <br>
+
+Type of **map** is shown like this
+```
+map: ('a  -> 'b) -> 'a list -> 'b list
+```
+
+With this, we can make below functions
+```
+let inc_all l = map (fun x -> x + 1) l
+let square_all l = map (fun x -> x * x) l
+```
+
+or, we can write like this
+```
+let inc_all = map (fun x -> x + 1)
+let square_all = map (fun x -> x * x)
+```
+
+### filter
+Below two functions are defined 
+```
+let rec even l =
+    match l with
+    | [] -> []
+    | hd :: tl ->
+        if hd mod 2 = 0 then hd::(even tl)
+        else even tl
+
+let rec greater_than_five l =
+    match l with
+    | []-> []
+    | hd :: tl ->
+        if hd > 5 then hd::(greater_than_five tl)
+        else greater_than_five tl
+```
+
+These two functions all select elements that satisfy certain condition. We can abstract this with higher-order function
+```
+let rec filter p l = 
+    match l with
+    | [] -> []
+    | hd::tl ->
+        if p hd then hd::(filter p tl)
+        else filter p tl
+```
+
+p: Should be a function that returns boolean value <br>
+
+With filter, we can define two functions again
+```
+let even l = filter (fun x -> x mod 2 = 0) l
+let greater_than_five = filter(fun x -> x>5) l
+```
+
+### fold
+```
+let rec prod l = 
+    match l with
+    | [] -> 1
+    | hd::tl -> hd * (prod tl)
+
+let rec sum l =
+    match l with
+    | [] -> 0
+    | hd::tl -> hd + (sum tl)
+```
+
+Both functions are traversing list, and accumulating certain calculation 
+```
+ sum [1; 2; 3] = 1 + (2 + (3 + 0))
+prod [1; 2; 3] = 1 * (2 * (3 * 1))
+```
+
+Difference between two functions are -> initial value, operation <br>
+
+With this two components, we can define fold_right
+```
+let rec fold_right f l a = 
+    match l with
+    | [] -> a
+    | hd::tl -> f hd (fold_right f tl a)
+```
+
+Let's define sum, prod again
+```
+let sum  lst = fold_right (fun x y -> x + y) lst 0
+let prod lst = fold_right (fun x y -> x * y) lst 1
+```
+
+We can think about functions with same meaning but different shape
+```
+let rec sum a l =
+    match l with
+    | [] -> a
+    | hd::tl -> sum (a + hd) tl
+
+let rec prod l =
+    match l with
+    | [] -> a
+    | hd::tl -> prod (a * hd) tl
+```
+
+We can abstract this with fold_left
+```
+let rec fold_left f l =
+    match l with
+    | [] -> a
+    | hd::tl ->fold_left f (f a hd) tl
+```
+Let's define sum, prod again
+```
+let  sum a l = fold_left (fun x y -> x + y) a l
+let prod a l = fold_left (fun x y -> x * y) a l
+```
+
+fold_right and fold_left have difference in type <br>
+
+- fold_right: ('a -> 'b -> 'b) -> 'a list -> 'b -> 'b
+- fold_left : ('a -> 'b -> 'a) -> 'a -> 'b list -> 'a
+
+Also, the direction that accumulates operation is also different
+```
+fold_right f [x;y;z] init = f x (f y (f z init))
+
+fold_left  f init [x;y;z] = f (f (f init x) y) z
+```
+
+So, when associative law doesn't apply, it can result to different consequence
+```
+fold_right (fun x y -> x - y) [1; 2; 3] 0;;
+- : int 2
+
+fold_left (fun x y -> x - y) 0 [1; 2; 3];;
+- : int = -6
+```
+
+Lastly, fold_left is tail-recursive, so it's better to use this when list is long 
