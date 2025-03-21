@@ -12,7 +12,10 @@
 	- [3.3 Seed Trimming](#seed-trimming)
 	- [3.4 Preparing a Driver Application](#preparing-a-driver-application)
 - [4. Scheduling](#scheduling)
-- [5. Input Generation]
+	- [4.1 The Fuzz Configuration Scheduling (FCS) Problem](#the-fuzz-configuration-schedulingfcs-problem)
+	- [4.2 Black-box FCS Algorithm](#black-box-fcs-algorithm)
+	- [4.3 Grey-box FCS Algorithm](#grey-box-fcs-algorithm)
+- [5. Input Generation](#input-generation)
 - [6. Input Evaluation]
 - [7. Configuration Updating]
 - [8. Related Work]
@@ -279,3 +282,111 @@ Done only once at the beginning of a fuzz campaign, but largely manual <br>
 Ex: Target is a libary => Need to prepare for a driver program that calls functions in the library 
 
 ## SCHEDULING 
+Scheduling => Selecting a fuzz configuration for the next fuzz iteration <br>
+
+Context of a fuzz configuration depends on the type of the fuzzer. <br>
+
+For example, for advanced fuzzer such as BFF, AFLFast, innovative scheduling algorithms are major factors
+
+### The Fuzz Configuration Scheduling(FCS) Problem
+Goal of scheduling => Analyze currently available information about the configurations and pick one that is more likely to lead to the most favorable outcome <br>
+
+Fundamentally, every scheduling algorithm confronts same problem => **exploration vs exploitation** <br>
+
+- Explore: Spend time on gathering more accurate information on each configuration to inform future decisions
+
+- Exploit: Spend time on fuzzing the configurations that are currently believed to lead to more favorable outcome 
+
+### Black-box FCS Algorithm 
+In Black-box setting, only information for FCS algorithm => Fuzz outcome of a configuration (number of crashes and bugs, amount of time spent... ) <br>
+
+CERT BFF black-box mutational fuzzer => Favor configurations with higher observed success probabilities (#unique crashes / #runs) <br>
+
+Improved:
+1. Refine model to become **Weighted Coupon Collector's Problem with Unknown Weights** -> learns decaying upper-bound on the success probability of each trial 
+
+2. Apllied **multi-armed bandit** algorithms to fuzzing -> Common copying strategy when faced with exploration vs exploitation 
+
+3. Normalized success probability of a configuration by the time already spent -> Prefer faster configuration
+
+4. Redefined fuzz iteration to run for fized amount of time -> Deprioritizing slower configurations 
+
+### Grey-box FCS Algorithm
+In Grey-box setting, FCS algorithm can choose to use a richer set of information about each configuration (coverage attained when fuzzing a configuration) <br>
+
+AFL => Forefunner of this categorty + based on Evolutionary Algorithm(EA) <br>
+
+EA => mainatain population of configuration, each with some value of **fitness**, EA selects fit configurations and apply them to genetic transformations (ex: mutation) and recombination to produce **offspring** <br>
+
+Hypothesis => Theses produced configurations(from offsping) are more likeyl to fit <br>
+
+To understand FCS in context of EA...
+
+1. Have to define what makes a configuration fit
+
+2. Have to define how configurations are selected
+
+3. Have to define how a selected configuration is used. 
+
+AFL => Considers configuration that contains fastest, smallest input to be fit. <br> 
+
+Once selected, AFL allocates more runs to configurations which are fastest and have higher branch coverage <br>
+
+AFLFast improved AFL in three aspects
+
+1. It modifies configuration fitness setting and selection to prioritize exploration of new and rare paths 
+
+2. AFLFast fuzzes a selected configuration a variable number of times detemined by **power schedule**. <br> **FAST power schedule** => starts with small **energy** value to ensure initial exploration amoung configurations and increases exponentially up to a limit to quickly ensure sufficient exploitation
+
+3. Normalizes energy by the number of generated inputs that execises the same path => promoting explorations of less-frequently fuzzed configuration
+
+## Input Generation
+Technique used for input generation => Most influential design decisions in a fuzzer <br>
+
+1. Generation-based fuzzers
+Produce test cases based on the given model that describes input expected by the PUT => **model-based fuzzer** 
+
+2. Mutation-based fuzzers
+Considered to be **model-less**, because seeds are merely example inputs + Do not completely describe expected input space of PUT 
+
+### Model-based (Generation-based) fuzzer
+Model-based => generate test cases based on given model (ex: grammar precisely characterizing input format, magic value of file types)
+
+#### Predefined Model
+Some fuzzers use a model that can be configured by the user <br>
+
+- Peach, PROTOS, Dharma => Take specification provided by user 
+
+- Autodafe, Sulley, SPIKE, SPIKEfile, Libfuzzer => Expose APIs that allow analysts to create their own input model 
+
+- Tavor => Take in an input specification written in Extended Backus-Naur form -> generate test cases conforming to the grammar 
+
+- network protocol fuzzer(PROTOS, SNOOZE, TFuzz) => Take in protocol specification
+
+- Kernel API fuzzer(trinity, syzkaller, syscallfuzzer..) => Define input model in the form of syscall template 
+
+Other model-based fuzzers target a specific language or gramma
+
+- cross_fuzz, DOMfuzz => generate random Document Object Model object
+
+- jsfunfuzz => produce random, but syntatically-correct JavaScript code based on own grammar model 
+
+#### Inferred Model
+Inferring model rather than relying on predefined/user-provided model <br>
+
+Similar to instrumentation, model inference can occur either in **PREPROCESS**, **CONFUPDATE** <br>
+
+- In PREPROCESS:
+Some fuzzers infer the model as a preprocessing step<br>
+TestMiner: searches for the data available in the PUT to predict suitable inputs <br>
+Skyfire: Given a set of seeds and a grammar => Uses data-driven approach to infer a probabilistic context-sensitive grammar and then uses it to generate new sets of seeds <br>
+IMF: Learns a kernel API model by analyzing system API logs => Produce C code that invoke a sequence of API calls using the inferred model 
+
+- In CONFUPDATE:
+Other fuzzers can update their model after each fuzz iteration<br>
+PULSAR: Aumatically infers a network protocol model from a set of captured network packets generated from a program => Internally builds a state machine and maps which message token is correlated with a state. The information is later used to generate test cases that cover more states <br>
+GLADE: Synthesizes a context-free grammar from a set of I/O samples and fuzzes the PUT using inferred grammar <br>
+
+#### Encode Model
+Fuzzing is often used to test **decoder** programs which parse certain file format <br>
+
