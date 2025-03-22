@@ -65,7 +65,7 @@ cd $HOME/fuzzing_xpdf/xpdf-3.02/
 make clean
 
 (Build xpdf using afl-clang-fast)
-export LLVM_CONFIG="llvm-config-11"
+export LLVM_CONFIG="llvm-config-19"
 CC=$HOME/AFLplusplus/afl-clang-fast CXX=$HOME/AFLplusplus/afl-clang-fast++ ./configure --prefix="$HOME/fuzzing_xpdf/install/"
 sudo make
 sudo make install
