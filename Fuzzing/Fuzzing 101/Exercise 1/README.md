@@ -1,7 +1,7 @@
 # Exercise 1 - Xpdf
 Finding vulnerability in Xpdf PDF viewer, **CVE-2019-13288** <br>
 
-## Envrionment setting
+## Environment setting
 ```
 cd $HOME
 mkdir fuzzing_xpdf && cd fuzzing_xpdf/
