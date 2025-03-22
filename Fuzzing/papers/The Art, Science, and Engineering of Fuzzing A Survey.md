@@ -16,6 +16,8 @@
 	- [4.2 Black-box FCS Algorithm](#black-box-fcs-algorithm)
 	- [4.3 Grey-box FCS Algorithm](#grey-box-fcs-algorithm)
 - [5. Input Generation](#input-generation)
+	- [5.1 Model-based (Generation-based) Fuzzers](#model-based-generation-based-fuzzer)
+	- [5.2 Model-less (Mutation-based) Fuzzers](#model-less-mutation-based-fuzzers)
 - [6. Input Evaluation]
 - [7. Configuration Updating]
 - [8. Related Work]
@@ -387,6 +389,34 @@ Other fuzzers can update their model after each fuzz iteration<br>
 PULSAR: Aumatically infers a network protocol model from a set of captured network packets generated from a program => Internally builds a state machine and maps which message token is correlated with a state. The information is later used to generate test cases that cover more states <br>
 GLADE: Synthesizes a context-free grammar from a set of I/O samples and fuzzes the PUT using inferred grammar <br>
 
-#### Encode Model
+#### Encoder Model
 Fuzzing is often used to test **decoder** programs which parse certain file format <br>
 
+Many file formats have => corresponding **encode** program -> implicit model of file format <br>
+
+MutaGen: Leverage implicit model contained in encoder program to generate new test cases. => Mutate **encoder program** not test cases <br>
+
+To produce test case => MutaGen computes **dynamic program slice** of the encoder program => Program slice will slightly change the behavior of encoder program -> Slightly malform test case
+
+### Model-less (Mutation-based) Fuzzers
+Classic random testing => Inefficient for specific patch condition
+```
+if (input == 42)
+```
+Satisfying this condition randomly is too hard => Test case will be rejected before entering deep part of system <br>
+
+seed => Input to the PUT, used to generate test cases by modifying the seed. <br>
+
+By mutating only a fraction of seed(valid file) -> Can generate test cases that is mostly valid, but also contain abnormal values 
+
+#### Bit-Flipping
+Common technique used by many model-less fuzzers -> flip fixed/random number of bits <br>
+
+**mutation ratio** -> User-configurable parameter that determines the number of bit to flip for a single execution of **INPUTGEN**. K random bits in a given N-bit seed => K/N mutation ratio<br>
+
+Symfuzz -> Showed fuzzing performance is sensitive to mutation ratio + There is not a single ratio suitable for all PUTs <br>
+
+BFF, FOE -> Use an exponentially scaled set of mutation ratios + Allocate more iteration to ratios that proved to be statistically effective 
+
+#### Arithmetic Mutation
+AFL, HongFuzz -> 
