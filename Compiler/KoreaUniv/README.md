@@ -6,6 +6,7 @@ https://prl.korea.ac.kr/courses/cose312/2025/
 - [2. Lecture 2](#lecture-2)
 - [3. Lecture 3](#lecture-3)
 - [4. Lecture 4](#lecture-4)
+- [5. Lecture 5](#lecture-5)
 
 # Lecture 1
 Compiler: Software that **tranlates** source language into target language <br>
@@ -449,7 +450,7 @@ Bottom Up is more powerful. Just making unambiguous is fine
 6. F -> id
 ```
 
-Bottom-Up Parsing: Construct a parse tree beginning at the leaves and working up toward the root
+Bottom-Up Parsing: Construct a parse tree beginning at the leaves and working up toward the root <br>
 
 ![ex1](./images/Lec5_1.png)
 Construct rightmost-derivation in reverse
