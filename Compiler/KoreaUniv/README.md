@@ -217,14 +217,14 @@ Those states that include NFA's accepting state becomes DFA's accepting state.
 ![algorithm](./images/Lec2_18.png)
 
 ### Algorithm for computing ϵ-Closures
-Formal definition: T = ϵ-Closure(I) is the smallest set such that
-![algo1](./images/Lec2_19.png)
-Alternatively, T is the smallest solution of the equation F(X) ⊆ (X) where
-![algo2](./images/Lec2_20.png)
+Formal definition: T = ϵ-Closure(I) is the smallest set such that <br>
+![algo1](./images/Lec2_19.png) <br>
+Alternatively, T is the smallest solution of the equation F(X) ⊆ (X) where <br>
+![algo2](./images/Lec2_20.png) <br>
 
 Such solution is called the **least fixed point of F** <br>
 
-Following is fixed point iteration algorithm 
+Following is fixed point iteration algorithm <br>
 
 ![fixed](./images/Lec2_21.png)
 
@@ -397,7 +397,6 @@ By rule 1, goto rule 3, and then look up FIRST(F) => {'(', 'id'}
 By rule 2, {'+', 'ϵ'}
 - FIRST(T'):
 By rule 4, {'*', 'ϵ'}
-<br>
 - FOLLOW(E): Add endmaker to FOLLOW set of start symbol
 By rule 5, {'$', ')'}
 - FOLLOW(E')
@@ -412,7 +411,7 @@ In rule 3, if T' goes to ϵ, add FOLLOW(T) into FOLLOW(F). If not, add FIRST(T')
 ### Algorithm for computing FIRST
 ![first](./images/Lec4_5.png)
 ### Algorithm for computing FOLLOW
-![follow](./images/Lec4_6.png)
+![follow](./images/Lec4_6.png) <br>
 
 Exercise: <br>
 ```
@@ -429,7 +428,7 @@ FOLLOW(Y): {'$', 'd', 'a', 'c'} From X->Y, add FOLLOW(X) to FOLLOW(Y)<br>
 FOLLOW(Z): {'$'} <br>
 
 ### Construction of Parsing Table
-![table2](./images/Lec4_7.png)
+![table2](./images/Lec4_7.png) <br>
 Build table M[A, a]: A is nonterminal, and a is a terminal or $ <br>
 
 Idea:
@@ -452,7 +451,7 @@ Bottom Up is more powerful. Just making unambiguous is fine
 
 Bottom-Up Parsing: Construct a parse tree beginning at the leaves and working up toward the root <br>
 
-![ex1](./images/Lec5_1.png)
+![ex1](./images/Lec5_1.png) <br>
 Construct rightmost-derivation in reverse
 
 ## Handle
