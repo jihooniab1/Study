@@ -105,7 +105,7 @@ float match0 (char *s) /* find a zero */
 }
 ```
 
-Given this code...
+Given this code... <br>
 
 ![lex](./images/Lec2_1.png)
 
@@ -124,7 +124,7 @@ Alpabet Σ is a **finite, non-empty** set of symbols <br>
 ### Strings
 String: finite sequence of symbols chosen from alphabet <br>
 
-For example: 1, 01, 10110 are strings over Σ = {0, 1}
+For example: 1, 01, 10110 are strings over Σ = {0, 1} <br>
 
 ![string](./images/Lec2_2.png)
 
@@ -138,12 +138,12 @@ Meta language that specifies another language <br>
 
 Since regular expression is language, it has syntax and semantics <br>
 
-Syntax: Usually define with **context free grammar**
-![syntax](./images/Lec2_4.png)
+Syntax: Usually define with **context free grammar** <br>
+![syntax](./images/Lec2_4.png) <br>
 - Regular expressions (R) are defined recursively, with simpler regular expressions as components.
 - The set of strings described by a regular expression forms a regular language, which is a specific type of formal language that can be recognized by a finite automaton. <br>
 
-Semantics: L(R) => Meaning of Regular Expression R. L(R) is subset of Σ*
+Semantics: L(R) => Meaning of Regular Expression R. L(R) is subset of Σ* <br>
 ![semantic](./images/Lec2_5.png)
 
 ### Regular Definitions
@@ -435,7 +435,6 @@ Idea:
 - Choose A → α, if the next symbol a is in FIRST(α)
 - If α =>* ϵ, choose A → α if a ∈ FOLLOW(A)
 
-Algorithm
 ![algo](./images/Lec4_8.png)
 
 # Lecture 5
@@ -539,7 +538,7 @@ Dot => Denoting progress of parsing. How far it read, and how many left.... <br>
 
 A -> ϵ has only one item: A -> ·
 
-### The Initial Parse Stat
+### The Initial Parse State
 Before making automata, we usually append Rule 0: E' -> E, for convenience <br>
 
 Initially, parser will have empty stack, and input will be complete E-sentence indicated by item **E' -> .E** <br>
@@ -646,3 +645,221 @@ situation, we get shift/reduce conflict
 - LR(1): Parsing table is based on LR(1) items.
 (R->L,$): reduce with R->L when the next token is $ => Generate large set of states
 - LALR(1): based on LR(0) items, introducing lookaheads into LR(0) items. 
+
+## Lecture 6
+```
+0: E' -> E
+1: E -> E + E
+2: E -> E * E
+3: E -> (E)
+4: E -> id
+```
+
+This grammar is unambiguous, but looks much more friendly <br>
+
+Following is LR(0) items <br>
+
+![item](./images/Lec6_1.png) <br>
+
+SLR Parsing Table looks like this <br>
+
+![table](./images/Lec6_2.png) <br>
+
+I7, I8 => 2 conflicts occur(when next input is **+ and ***, shift/reduce)
+
+### Resolving Conflicts with Precedence
+Conflicts -> Resolved by assuming that precedence and left-associative <br>
+
+![conflict](./images/Lec6_3.png) <br>
+
+SHIFT is correct: **reduce** means changing **E+E** into E, we should handle * first <br>
+
+Shift -> "I will read the latter first and then reduce the latter first" <br>
+
+Take shift action when the parser is at state 7 and the next input symbol is * <br>
+
+![resolve1](./images/Lec6_4.png) <br>
+
+
+### Resolving Conflicts with Associativity
+![conflict2](./images/Lec6_5.png)
+
+REDUCE is correct: To make left-associative, we have to do reduce first <br>
+
+![resolve2](./images/Lec6_6.png)
+
+### Exercise
+Suppose the parse is at state 8 <br>
+
+#### 1. Which is correct when the next input is +?
+I8 has these items
+```
+E -> E * E.
+E -> E. + E
+E -> E. * E
+```
+
+**id * id + id** can bring us to state 8. Let's check 
+```
+Stack     Symbols     Input
+0                     id*id+id
+0 3       id          *id+id
+0 1       E           *id+id
+0 1 5     E*          id+id
+0 1 5 3   E*id        +id
+0 1 5 8   E*E         +id
+```
+Now we are at state 8 and next input is **+** <br>
+
+In this situation, we have to select **reduce** <br>
+
+Selecting reduce means, handling * first than + <br>
+
+If we choose shift, 
+```
+id * id + id
+```
+will be interpreted like
+
+```
+0 1 5 8 4 7   E * E + E   $ => E + E handled first! 
+
+id * (id + id)
+```
+
+To implement precedence, we have to choose **reduce**
+
+#### 2. Which is correct when the next input is *?
+```
+Stack     Symbols     Input
+0                     id*id*id
+0 3       id          *id*id
+0 1       E           *id*id
+0 1 5     E*          id*id
+0 1 5 3   E*id        *id
+0 1 5 8   E*E         *id
+```
+Again, we have to choose **reduce**, because of left-associativity <br>
+
+### The "Dangling-Else" Ambiguity
+Let's say grammar for conditional statements is like below
+```
+stmt -> if expr then stmt
+     |  if expr then stmt else stmt
+     | other
+```
+
+This grammar is ambiguous since
+```
+if E1 then if E2 then S1 else S2
+```
+has two parse trees <br>
+
+Following is simplified and augmented version. i: if expr then, S: stmt, e: else 
+```
+S' -> S 
+S  -> i S e S | i S | a
+```
+
+These are LR(0) states <br>
+![states](./images/Lec6_7.png)
+
+We can guess that there will be shift/reduce conflict in I4 <br>
+
+FOLLOW set of S is {e, $}, so if we make SLR parsing table, shift/reduce happen in (4, e) entry <br>
+
+![table](./images/Lec6_8.png) <br>
+
+r2, s5 goes into (4,e) and r2 goes into (4, $)
+
+```
+Stack      Symbols      Input
+0                       i S e s
+0 2        i            S e S
+0 4        i S          e S
+```
+
+In this situation, we have to select **shift** <br>
+
+If we reduce, else is connected to outer-if statement, but shift can connect **else** to closest if <br>
+
+```
+if(condition1) {
+    if(condition2) {
+        statement;
+    } else {
+        statement2;
+    }
+}
+
+If we select reduce, becomes if(condition1) { if(condition2) statement; else statement2;}
+```
+
+Intuitively, else is connected to closest-if statement
+
+#### Example
+```
+Stack       Symbols      Input      action
+0                        iiaea$     shift
+0 2         i            iaea$      shift
+0 2 2       ii           aea$       shift
+0 2 2 3     iia          ea$        shift
+0 2 2 4     iiS          ea$        reduce 3
+0 2 2 4 5   iiSe         a$         shift
+0 2 2 4 5 3 iiSea        $          shift
+0 2 2 4 5 6 iiSeS        $          reduce 1
+0 2 4       iS           $          reduce 2
+0 1         S            $          acc
+```
+
+#### Exercise
+Grammar was ambiguous becuase of dangling-else problem. <br>
+
+```
+if expr1 then if expr2 then stmt1 else stmt2
+```
+This can be parsed in two different ways <br>
+
+We can remove ambiguity by applying rule of "else is connected to closest if" <br>
+
+Ambiguity of above grammar can be removed by introducing auxiliary nonterminals <br>
+- M: matched statement (if - else)
+- U: unmatched statement (only if)
+
+```
+S → M
+S → U
+M → if expr then M else M  //If unmatched exists, entire statement becomes unmatched
+M → other
+U → if expr then S
+U → if expr then U else S
+```
+
+## Lecture 7
+Yacc: **Yet Another Compiler-Compiler** <br>
+
+ocamlyacc -> parser generator for OCaml
+![yacc](./images/Lec7_1.png) <br>
+
+### Example: Calculator
+- ast.ml: abstract Syntax
+- eval.ml: evaluator implementation
+- parser.mly: input to ocamlyacc
+- lexer.mll: input to ocamllex
+- main.ml: driver routine
+
+#### ast.ml
+```
+type expr =
+   Num of int
+ | Add of expr * expr
+ | Sub of expr * expr
+ | Mul of expr * expr
+ | Div of expr * expr
+ | Pow of expr * expr
+```
+
+Expression of below AST 
+![AST](./images/Lec7_2.png)
+
+#### Grammar Specification
