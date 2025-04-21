@@ -665,7 +665,7 @@ SLR Parsing Table looks like this <br>
 
 ![table](./images/Lec6_2.png) <br>
 
-I7, I8 => 2 conflicts occur(when next input is **+ and ***, shift/reduce)
+I7, I8 => 2 conflicts occur(when next input is + and *, shift/reduce)
 
 ### Resolving Conflicts with Precedence
 Conflicts -> Resolved by assuming that precedence and left-associative <br>
@@ -792,7 +792,7 @@ if(condition1) {
     }
 }
 
-If we select reduce, becomes if(condition1) { if(condition2) statement; else statement2;}
+If we select reduce, becomes if(condition1) { if(condition2) statement;} else statement2;
 ```
 
 Intuitively, else is connected to closest-if statement
@@ -838,7 +838,7 @@ U → if expr then U else S
 ## Lecture 7
 Yacc: **Yet Another Compiler-Compiler** <br>
 
-ocamlyacc -> parser generator for OCaml
+ocamlyacc -> parser generator for OCaml <br>
 ![yacc](./images/Lec7_1.png) <br>
 
 ### Example: Calculator
@@ -859,7 +859,7 @@ type expr =
  | Pow of expr * expr
 ```
 
-Expression of below AST 
+Expression of below AST <br>
 ![AST](./images/Lec7_2.png)
 
 #### Grammar Specification
