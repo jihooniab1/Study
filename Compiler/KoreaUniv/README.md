@@ -7,6 +7,9 @@ https://prl.korea.ac.kr/courses/cose312/2025/
 - [3. Lecture 3](#lecture-3)
 - [4. Lecture 4](#lecture-4)
 - [5. Lecture 5](#lecture-5)
+- [6. Lecture 6](#lecture-6)
+- [7. Lecture 7](#lecture-7)
+- [8. Lecture 8](#lecture-8)
 
 # Lecture 1
 Compiler: Software that **tranlates** source language into target language <br>
@@ -835,20 +838,20 @@ U → if expr then S
 U → if expr then U else S
 ```
 
-## Lecture 7
+# Lecture 7
 Yacc: **Yet Another Compiler-Compiler** <br>
 
 ocamlyacc -> parser generator for OCaml <br>
 ![yacc](./images/Lec7_1.png) <br>
 
-### Example: Calculator
+## Example: Calculator
 - ast.ml: abstract Syntax
 - eval.ml: evaluator implementation
 - parser.mly: input to ocamlyacc
 - lexer.mll: input to ocamllex
 - main.ml: driver routine
 
-#### ast.ml
+### ast.ml
 ```
 type expr =
    Num of int
@@ -862,4 +865,796 @@ type expr =
 Expression of below AST <br>
 ![AST](./images/Lec7_2.png)
 
-#### Grammar Specification
+### Grammar Specification
+```
+%{
+    User declarations
+}%
+    Parser declarations
+%%
+    Grammar rules
+```
+
+- User declarations: OCaml declarations usable from the parser
+- Parser declarations: symbols, precednece, associativity (token)
+- Grammar rules: productions of the grammar
+
+**parser.mly** looks like this
+```
+%{
+%}
+
+%token NEWLINE LPAREN RPAREN PLUS MINUS MULTIPLY DIV POW
+%token <int> NUM
+
+%start program
+%type <Ast.expr> program
+
+%%
+
+program : exp NEWLINE { $1 }
+exp : NUM { Ast.Num ($1) }
+| exp PLUS exp { Ast.Add ($1, $3) }
+| exp MINUS exp { Ast.Sub ($1, $3) }
+| exp MULTIPLY exp { Ast.Mul ($1, $3) }
+| exp DIV exp { Ast.Div ($1, $3) }
+| exp POW exp { Ast.Pow ($1, $3) }
+| LPAREN exp RPAREN { $2 }
+
+```
+
+NUM -> int type value that has sementic value <br>
+
+start program -> Start variable of CFG <br>
+
+<Ast.expr> -> Denotes that this type of value is generated when program is read <br>
+
+$1 -> Keyword of yacc <br>
+
+```
+NUM { Ast.Add ($1)}
+```
+NUM goes to $1 <br>
+
+```
+exp PLUS exp { Ast.Add ($1, $3)} 
+```
+first exp goes to $1 and second exp goes to $3, second token PLUS is not used
+
+**lexer.mll** looks like this
+```
+{
+  open Parser
+  exception LexicalError
+}
+
+let number = [’0’-’9’]+
+let blank = [’ ’ ’\t’]
+
+rule token = parse
+  | blank { token lexbuf }
+  | ’\n’ { NEWLINE }
+  | number { NUM (int_of_string (Lexing.lexeme lexbuf)) }
+  | ’+’ { PLUS }
+  | ’-’ { MINUS }
+  | ’*’ { MULTIPLY }
+  | ’/’ { DIV }
+  | ’^’ { POW }
+  | ’(’ { LPAREN }
+  | ’)’ { RPAREN }
+  | _ { raise LexicalError }
+```
+
+This is mapping defined token. <br>
+
+Open Parser is for using defined tokens <br>
+
+When faced **\n**, return NEWLINE <br>
+
+**eval.ml** looks like this
+```
+open Ast
+
+let rec eval : expr -> int
+=fun e ->
+  match e with
+  | Num n -> n
+  | Add (e1, e2) -> (eval e1) + (eval e2)
+  | Sub (e1, e2) -> (eval e1) - (eval e2)
+  | Mul (e1, e2) -> (eval e1) * (eval e2)
+  | Div (e1, e2) -> (eval e1) / (eval e2)
+  | Pow (e1, e2) -> pow (eval e1) (eval e2)
+and pow a b =
+  if b = 0 then 1 else a * pow a (b-1)
+```
+
+**main.ml**
+```
+let main () =
+  let lexbuf = Lexing.from_channel stdin in
+  let ast = Parser.program Lexer.token lexbuf in
+  let num = Eval.eval ast in
+    print_endline (string_of_int num)
+
+let _ = main ()
+```
+
+**Makefile**
+```
+all:
+  ocamlc -c ast.ml
+  ocamlyacc parser.mly
+  ocamlc -c parser.mli
+  ocamllex lexer.mll
+  ocamlc -c lexer.ml
+  ocamlc -c parser.ml
+  ocamlc -c eval.ml
+  ocamlc -c main.ml
+  ocamlc ast.cmo lexer.cmo parser.cmo eval.cmo main.cmo
+
+clean:
+  rm -f *.cmo *.cmi a.out lexer.ml parser.ml parser.mli
+```
+
+### Conflicts
+```
+$ make
+ocamlc -c ast.ml
+ocamlyacc parser.mly
+25 shift/reduce conflicts.  => ocamlycc tells if there is conflicts
+ocamlc -c parser.mli
+ocamllex lexer.mll
+12 states, 267 transitions, table size 1140 bytes
+...
+```
+
+Can resolve conflicts like this
+```
+%left PLUS MINUS
+%left MULTIPLY DIV
+%right POW
+```
+
+Precedence goes up as it go down (PLUS < DIV < POW) <br>
+
+left, right means associativity <br>
+
+### Example: The While Language
+Following is sample usage
+
+```
+// sum.c
+n := 10; i := 1;
+fact := 1;
+while (i <= n) {
+    fact := fact * i;
+    i := i + 1;
+}
+print (fact);
+
+// fact.c
+n := 10; i := 1;
+evens := 0; // sum of even numbers
+odds := 0; // sum of odd numbers
+while (i <= n)
+{
+    if (!(i % 2 == 1) && i % 2 == 0) {
+        evens := evens + i;
+}   else {
+        odds := odds + i;
+    }
+    i := i + 1;
+}
+print (evens);
+print (odds);
+```
+
+AST looks like this
+![ast](./images/Lec7_3.png)
+```
+type var = string
+
+type aexp =
+| Int of int | Var of var
+| Add of aexp * aexp | Sub of aexp * aexp
+| Mul of aexp * aexp | Div of aexp * aexp | Mod of aexp * aexp
+
+type bexp =
+| Bool of bool
+| Eq of aexp * aexp
+| Le of aexp * aexp
+| Neg of bexp
+| Conj of bexp * bexp
+
+type cmd =
+| Assign of var * aexp
+| Skip
+| Seq of cmd * cmd
+| If of bexp * cmd * cmd
+| While of bexp * cmd
+| Print of aexp
+
+type program = cmd
+```
+
+### Grammar specification
+**parser.mly**
+```
+%{
+%}
+
+%token <string> IDENT
+%token <int> NUMBER
+%token <bool> BOOLEAN
+%token LPAREN RPAREN LBRACE RBRACE SEMICOLON EOF
+%token BAND NOT LE EQ PLUS MINUS STAR SLASH MOD ASSIGN SKIP PRINT IF ELSE WHILE
+
+%left BAND
+%left EQ
+%left LE
+%left PLUS MINUS
+%left STAR SLASH MOD
+%right NOT
+
+%type <Ast.cmd> cmd
+%type <Ast.aexp> aexp
+%type <Ast.bexp> bexp
+%type <Ast.program> program
+
+%start program
+
+%%
+```
+
+Let's implement rest of the parser.mly
+```
+$start program
+
+%% 
+
+program: cmd EOF {$1}
+
+cmd :
+	| IDENT ASSIGN aexp SEMICOLON { Ast.Assign ($1, $3)}
+	| SKIP SEMICOLON { Ast.Skip }
+	| cmd cmd { Ast.Seq ($1, $2) }
+	| IF LPAREN bexp RPAREN LBRACE cmd RBRACE ELSE LBRACE cmd RBRACE { Ast.If ($3, $6, $10) }
+	| WHILE LPAREN bexp RPAREN LBRACE cmd RBRACE { Ast.WHILE ($3, $6) }
+	| PRINT LPAREN aexp RPAREN SEMICOLON {Ast.Print $2}
+
+aexp:
+  | NUMBER { Ast.Int $1 }
+  | IDENT { Ast.Var $1 }
+  | aexp PLUS aexp { Ast.Add ($1, $3) }
+  | aexp MINUS aexp { Ast.Sub ($1, $3) }
+  | aexp STAR aexp { Ast.Mul ($1, $3) }
+  | aexp SLASH aexp { Ast.Div ($1, $3) }
+  | aexp MOD aexp { Ast.Mod ($1, $3) }
+  | LPAREN aexp RPAREN { $2 }  => Don't consider parenthesis, just evaluate 
+	
+bexp:
+	| BOOLEAN {Ast.Bool $1}
+	| aexp EQ aexp {Ast.Eq ($1, $3) }
+	| aexp LE aexp {Ast.Le ($1, $3) }
+	| NOT bexp {Ast.Neg $2}
+	| bexp BAND bexp {Ast.Conj ($1, $3) }
+	| LPAREN bexp RPAREN { $2 }
+```
+
+For simplicity, this grammar only considers if-statement like
+```
+if (bexp1) {
+    cmd
+}
+else{
+    cmd
+}
+```
+
+**lexer.mll**
+```
+{
+  open Parser
+  exception LexingError of string
+  let kwd_list : (string * Parser.token) list =
+    [
+      ("true", BOOLEAN true);
+      ("false", BOOLEAN false);
+      ("if", IF);
+      ("else", ELSE);
+      ("while", WHILE);
+      ("skip", SKIP);
+      ("print", PRINT)
+    ]
+  let id_or_kwd (s : string) : Parser.token =
+    match List.assoc_opt s kwd_list with
+    | Some t -> t
+    | None -> IDENT s
+}
+
+let letter = [’a’-’z’ ’A’-’Z’]
+let digit = [’0’-’9’]
+let number = digit+
+let space = ’ ’ | ’\t’ | ’\r’
+let blank = space+
+let new_line = ’\n’ | "\r\n"
+let ident = letter (letter | digit | ’_’)*
+
+let comment_line_header = "//"
+
+rule next_token = parse
+  | comment_line_header { comment_line lexbuf }
+  | blank { next_token lexbuf }
+  | new_line { Lexing.new_line lexbuf; next_token lexbuf }
+  | ident as s { id_or_kwd s }
+  | number as n { NUMBER (int_of_string n) }
+  | ’(’ { LPAREN }
+  | ’)’ { RPAREN }
+  | ’{’ { LBRACE }
+  | ’}’ { RBRACE }
+  | ’;’ { SEMICOLON }
+  | "==" { EQ }
+  | "<=" { LE }
+  | ’!’ { NOT }
+  | ’+’ { PLUS }
+  | ’-’ { MINUS }
+  | ’*’ { STAR }
+  | ’/’ { SLASH }
+  | ’%’ { MOD }
+  | "&&" { BAND }
+  | ":=" { ASSIGN }
+  | eof { EOF }
+  | _ as c
+    { LexingError (": illegal character \’" ^ (c |> String.make 1) ^ "\’")
+        |> Stdlib.raise }
+
+and comment_line = parse
+  | new_line { Lexing.new_line lexbuf; next_token lexbuf }
+  | eof { EOF }
+  | _ { comment_line lexbuf }
+```
+
+**eval.ml**
+```
+open Ast
+
+module State = struct
+  type t = (var * int) list
+  let empty = []
+  let rec lookup s x =
+  match s with
+  | [] -> raise (Failure (x ^ " is not bound in state"))
+  | (y,v)::s’ -> if x = y then v else lookup s’ x
+  let update s x v = (x,v)::s
+end
+
+let rec eval_a : aexp -> State.t -> int
+=fun a s ->
+match a with
+  | Int n -> n
+  | Var x -> State.lookup s x
+  | Add (a1, a2) -> (eval_a a1 s) + (eval_a a2 s)
+  | Sub (a1, a2) -> (eval_a a1 s) - (eval_a a2 s)
+  | Mul (a1, a2) -> (eval_a a1 s) * (eval_a a2 s)
+  | Div (a1, a2) -> (eval_a a1 s) / (eval_a a2 s)
+  | Mod (a1, a2) -> (eval_a a1 s) mod (eval_a a2 s)
+
+let rec eval_b : bexp -> State.t -> bool
+=fun b s ->
+match b with
+  | Bool true -> true
+  | Bool false -> false
+  | Eq (a1, a2) -> (eval_a a1 s) = (eval_a a2 s)
+  | Le (a1, a2) -> (eval_a a1 s) <= (eval_a a2 s)
+  | Neg b’ -> not (eval_b b’ s)
+  | Conj (b1, b2) -> (eval_b b1 s) && (eval_b b2 s)
+
+let rec eval_c : cmd -> State.t -> State.t
+=fun c s ->
+  match c with
+  | Assign (x, a) -> State.update s x (eval_a a s)
+  | Skip -> s
+  | Seq (c1, c2) -> eval_c c2 (eval_c c1 s)
+  | If (b, c1, c2) -> eval_c (if eval_b b s then c1 else c2) s
+  | While (b, c) ->
+    if eval_b b s then eval_c (While (b,c)) (eval_c c s)
+    else s
+  | Print a -> print_endline (string_of_int (eval_a a s)); s
+
+let eval : program -> State.t
+=fun p -> eval_c p State.empty
+```
+
+# Lecture 8
+We used CFG to specify grammar when performing Syntax analysis <br>
+
+To perform semantic analysis, first have to define the meaning <br>
+
+There are two approaches to specify program semantics <br>
+
+1. Operational Semantics: The meaning is specified by the computation steps executed on a machine 
+2. Denotational semantics: The meaning is modelled by mathematical objects that represent the effect of executing the program
+
+## The While Language
+**AST** <br>
+![ast](./images/Lec8_1.png) <br>
+
+We can make program like this
+```
+y:=1; while ¬(x=1) do (y:=y⋆x; x:=x-1)
+```
+Although it is written like this, actually we can consider this as parsed tree form <br>
+
+## Semantics of Expressions
+To define program, have to define **State** <br>
+
+State: Mapping Var to int value 
+```
+s ∈ State = Var → Z
+```
+
+![aexp](./images/Lec8_2.png) <br>
+
+![bxexp](./images/Lec8_3.png) <br>
+
+### Free Variables
+Meaning set of variables that appears in expression. Can be defined inductively <br>
+
+No FV for constant and Boolean value
+```
+FV(n) = ∅
+FV(true) = ∅, FV(false) = ∅
+```
+
+FV for a varaible is variable itself
+```
+FV(X) = {X}
+```
+
+FV for aexp
+```
+FV (a1 + a2) = FV (a1) ∪ FV (a2)
+FV (a1 ⋆ a2) = FV (a1) ∪ FV (a2)
+FV (a1 − a2) = FV (a1) ∪ FV (a2)
+```
+
+FV for bexp
+```
+FV (a1 = a2) = FV (a1) ∪ FV (a2)
+FV (a1 ≤ a2) = FV (a1) ∪ FV (a2)
+FV (¬b) = FV (b)
+FV (b1 ∧ b2) = FV (b1) ∪ FV (b2)
+```
+
+Only the free variables influence the value of an expression <br>
+
+![lemma1](./images/Lec8_4.png) <br>
+
+If two states have same value for all free variable, then evaluation result is also same <br>
+
+![lemma2](./images/Lec8_5.png) <br>
+
+Similar lemma but about boolean expression
+
+#### Substitution
+a[y ↦ a0]: Aexp that is obtained by replacing each occurrence of y in a by a0 <br>
+
+![aexp](./images/Lec8_6.png) <br>
+
+s[y ↦ v]: state s except that the value bound to y is v (Assignment)
+
+## Operational Semantics
+- Big-step: Describes how the overall results of executions are obtained(focus on big picture..)
+- Small-step: Describes how the **individual** steps of the computations take place(focus on single step)
+
+Semantics is specified by a transition system (S, →) where S is the set of states (configurations) with two types <br>
+
+- <S, s>: non terminal state(statement S is to be executed from the state s)
+- s: terminal state
+
+Transition relation **(→) ⊆ S × S** : describe how the execution take place 
+
+## Bit-Step Operational Semantics
+Transition relation specifies the relationship between initial state and final state
+```
+⟨S, s⟩ → s'
+```
+
+Transition relation is defined with inference rule of the form: <br>
+
+![relation](./images/Lec8_7.png) <br>
+
+S1 ~ Sn => Statements that constitute S <br>
+
+Rule has a number of premises and one conclusion <br>
+
+May also have a number of conditions that have to be fulfulled whenever the rule is applied <br>
+
+Rules without premises: **axioms**
+
+### Big-Step Operational Semantics for While
+![while](./images/Lec8_8.png) <br>
+
+Example1 <br>
+![ex1](./images/Lec8_9.png) <br>
+
+#### Execution Types
+Execution <S, s>...
+- Terminates -> if and only if there is state s' such that <S, s> -> s'(Derivation tree is finished)
+- Loops -> if and only if there is no state s' (Derivation tree not finishing) <br>
+
+### Semantic Equivalence
+S1 = S2: Syntatically equivalent <br>
+S1 ≡ S2: Semantically equivalent, if the following is true
+```
+⟨S1, s⟩ → s'  if and only if ⟨S2, s⟩ → s
+```
+
+![lemma](./images/Lec8_10.png) <br>
+
+## Semantic Function for Statements
+Semantics of statements can be defined by the partial function <br>
+
+Partial function(↪): Cannot be defined for all possible input <br>
+
+![state](./images/Lec8_11.png) <br>
+
+## Small-Step Operational Semantics
+Individual computation steps are described by the transition relation:
+```
+<S,s> => γ
+```
+
+Where γ is non-terminal state <S',s'> or terminal state s' <br>
+
+If γ is non-terminal, then execution of S from s is not completed <br>
+
+If γ is terminal, then exeuction has terminated and final state is s' <br>
+
+<S, s> is stuck if there is no γ such that <S, s> => γ
+
+### Small-Step Operational Semantics for While
+![small](./images/Lec8_12.png) <br>
+
+## Derivation Sequence
+Derivation sequence of statement S starting from state s is either: finite sequence, infinite sequence
+
+### Finite sequence
+```
+γ0, γ1, γ2, ... , γk
+```
+
+sometimes written
+```
+γ0 => γ1 => γ2 => ... => γk
+```
+
+consisting of configurations satisfying
+```
+γ0 = ⟨S, s⟩, γi ⇒ γi+1 for 0 ≤ i < k where k ≥ 0 and γk is either terminal or stuck configuration 
+```
+
+### Infinite sequence
+```
+γ0, γ1, γ2, ...
+```
+
+sometimes written as
+```
+γ0 => γ1 => γ2 => ...
+```
+consisting of configurations satisfying 
+```
+γ0 = <S, s> and γi => γi+1 for 0 ≤ i
+```
+
+Example <br>
+![ex](./images/Lec8_13.png) <br>
+
+### Other Notations
+γ0 ⇒k γk : Can reach γk after k steps of execution <br>
+
+γ ⇒∗ γ' : Indicate that there are finite number of steps <br>
+
+Execution of a statement S on a state s terminates if and only if there is a finite derivation sequence starting from <S, s> <br>
+
+Infinite derivation sequnce => **loop**
+
+## Semantic Function(Small-step)
+![semantic](./images/Lec8_14.png) <br>
+
+Sb -> big-step, Ss -> small-step 
+
+## Equivalence of Big-Step and Small-Step Semantics
+![equiv](./images/Lec8_15.png) <br>
+
+![lemma](./images/Lec8_16.png) <br>
+![lemma2](./images/Lec8_17.png) <br>
+![lemma](./images/Lec8_18.png) <br>
+![lemma](./images/Lec8_19.png) <br>
+
+# Lecture 9
+While: Syntax <br>
+![syn](./images/Lec9_1.png) <br>
+
+While: Semantics
+![sem](./images/Lec9_2.png) <br>
+![sem](./images/Lec9_3.png) <br>
+
+## Abstract Machine M
+```
+inst → push(n)
+    | add
+    | mult
+    | sub
+    | true
+    | false
+    | eq
+    | le
+    | and
+    | neg
+    | fetch(x)
+    | store(x)
+    | noop
+    | branch(c, c)
+    | loop(c, c)
+
+Code ∋ c → ϵ
+        | inst :: c
+```
+
+## Small-Step Operational Semantics
+Configuration of M consists of three components
+```
+⟨c, e, s⟩ ∈ Code × Stack × State
+```
+
+c: sequence of instructions to be executed <br>
+
+e: evaluation stack, Evaluation stack is a list of value:
+```
+Stack = (Z ∪ T)∗
+```
+used to evaluate arithmetic and boolean expressions
+
+s: memory state, maps variables to values
+```
+State = Var → Z
+```
+
+A configuration is a terminal, if code component is empty 
+
+## Transition Relation
+![trans](./images/Lec9_4.png)
+
+## Semantic Function
+semantcis of code c ∈ Code is deinfed by partial function <br>
+
+![sem](./images/Lec9_5.png) <br>
+
+and Compilation Rules <br>
+![com](./images/Lec9_6.png) 
+
+## Compiler correctness
+![1](./images/Lec9_7.png) <br>
+![2](./images/Lec9_8.png) <br>
+![3](./images/Lec9_9.png)
+
+# Lecture 10
+Translation from AST to IR <br>
+
+IR is more suitable for analysis and optimzation, and translation to executable
+
+## Source Language S
+```
+{
+    int x;
+    x = 0;
+    print (x+1);
+}
+
+{
+    int x;
+    x = -1;
+    if (x) { print (-1); }
+    else { print (2); }
+}
+
+{
+    int x;
+    read (x); -> User input 
+    if (x == 1 || x == 2) print (x); else print (x+1);
+}
+
+{ int sum; int i;
+    i = 0; sum = 0;
+    while (i < 10) {
+        sum = sum + i;
+        i++;
+    }
+    print (sum);
+}
+{ int[10] arr; int i;
+    i = 0;
+    while (i < 10) {
+        arr[i] = i;
+        i++;
+    }
+    print (i);
+}
+```
+
+## Intermidiate Language T
+```
+{
+    int x;
+    x = 0;
+    print (x+1);
+}
+
+0 : x = 0
+0 : t1 = 0
+0 : x = t1
+0 : t3 = x
+0 : t4 = 1
+0 : t2 = t3 + t4
+0 : write t2
+0 : HALT
+```
+
+0: => label. 0 means dummy label, not target of goto 
+
+```
+{
+    int x;
+    x = -1;
+    if (x) {
+        print (-1);
+    } else {
+        print (2);
+    }
+}
+
+0 : x = 0
+0 : t2 = 1
+0 : t1 = -t2
+0 : x = t1
+0 : t3 = x
+0 : if t3 goto 2
+0 : goto 3
+2 : SKIP
+0 : t5 = 1
+0 : t4 = -t5
+0 : write t4
+0 : goto 4
+3 : SKIP
+0 : t6 = 2
+0 : write t6
+0 : goto 4
+4 : SKIP
+0 : HALT
+```
+
+## Abstract Syntax of S
+![syn](./images/Lec10_1.png) 
+
+## Semantics of S
+Statement changes the memory state of the program(int i; int[10] arr; i = 1;) <br>
+
+Memory -> mapping from locations to values 
+![mem](./images/Lec10_2.png) <br>
+
+Following is Semantics Rules <br>
+
+### Runtime Errors in S
+For example, 
+```
+M(x) = (a, n2),0<=n1<n2
+```
+This means array and range both should be valid 
+
+## Syntax of T
+
+## Semantics
+![sem](./images/Lec10_3.png) <br>
+
