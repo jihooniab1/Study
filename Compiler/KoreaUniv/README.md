@@ -10,6 +10,8 @@ https://prl.korea.ac.kr/courses/cose312/2025/
 - [6. Lecture 6](#lecture-6)
 - [7. Lecture 7](#lecture-7)
 - [8. Lecture 8](#lecture-8)
+- [9. Lecture 9](#lecture-9)
+- [10. Lecture 10](#lecture-10)
 
 # Lecture 1
 Compiler: Software that **tranlates** source language into target language <br>
