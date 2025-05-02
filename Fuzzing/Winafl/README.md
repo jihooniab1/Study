@@ -25,6 +25,7 @@ Need 64-bit winafl.dll build to fuzz 64-bit target
 ```
 cd winafl
 mkdir build64
+cd build64
 cmake -G"Visual Studio 17 2022" -A x64 .. -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DDynamoRIO_DIR=C:\path\to\DynamoRIO\cmake -DINTELPT=1 -DUSE_COLOR=1
 cmake --build .  --config Release 
 ```
