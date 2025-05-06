@@ -125,11 +125,11 @@ IP: 230  \x05\x02\x01   ADD   reg[2], 1      ; Increase register 2 by 1 (move to
 IP: 233  \x05\x01\xf6   ADD   reg[1], -10    ; Add -10 to register 1 (counter)
 IP: 236  \x06\xf4       JNZ   -12            ; If reg[1]≠0, jump to IP = 224 (JMP instruction)
 IP: 238  \x02\x00\x01   MOV   reg[0], 1      ; Store 1 in register 0 (switch to output mode)
-IP: 241  \x02\x02\x1d   MOV   reg[2], 29     ; Store 29 in register 2 (return to same memory area)
+IP: 241  \x02\x02\x00   MOV   reg[2], 0     ; Store 0 in register 2 (start from flag) # Changed part
 IP: 244  \x00\x01\x02   LOAD  reg[1], [reg[2]] ; Load value from memory[reg[2]] to reg[1]
 IP: 247  \x08           EXT                  ; Output (reg[0]=1 means output mode)
 IP: 248  \x05\x02\x01   ADD   reg[2], 1      ; Increase register 2 by 1 (next position)
-IP: 251  \x06\xf3       JNZ   -7             ; If reg[1]≠0, jump to IP = 244 (LOAD instruction)
+IP: 251  \x06\xf3       JNZ   -7             ; If reg[1]≠0, jump to IP = 244 (LOAD instruction) # Changed part
 ```
 
 # Exploit
