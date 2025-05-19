@@ -66,12 +66,12 @@ In this section..
 2. Explain why they all fail to efficiently test file system 
 3. Summarize challenges and potential opportunities in file system fuzzing
 
-## A Primer on Fuzzing
+## A. A Primer on Fuzzing
 Fuzzing: Popular softwware-testing method by repeatedly generating new input and injecting them into target program <br>
 
 Recent fuzzers leverage the past code coverage to later direct the input generation <br>
 
-## File System Fuzzing
+## B. File System Fuzzing
 Disk file system has two-dimensional input space: <br>
 1. Structured file system image format
 2. File operations that users invoke to access file stored on a mounted image 
@@ -88,4 +88,71 @@ Above presents on-disk layout of typical ext4 image. However the size of metadat
 
 This means => Minimum size of a valid image is large for fuzzing input <br>
 
-Large input size 
+Issues that occur when using an image as a fuzzing input: <br>
+
+1. Exponential increase in the input space exploration
+2. Frequent read, write, mutation... => Slowing down file operation + Huge overhead 
+3. Mutated metablock without correct checksum => Rejected by kernel during initialization
+
+Disk image fuzzers enforce a file system to mount, execute sequence of file operations on mutated disk images <br>
+
+Early Fuzzers: Mutate bytes at random offset, or bytes in metadata blocks => Heavy I/O, Poor performance <br>
+
+Recent Fuzzers: Driven by code coverage. Extract all the non-zero chunks in a seed image for mutation => Results in sub-optimal file system fuzzing + Fail to fix checksum <br>
+
+### File Operation Fuzzer
+File system => Part of OS. <br>
+
+General approach: Invoke a set of system calls (syzkaller, trinity, triforceAFL..) -> Porting these fuzzers to target file system is straightforward, but fail (efficiency) <br>
+
+#### Modify only file objects
+File operation modify only file objects (directories, symbolic links...) that exist on the image, and complete operation affects particular objects. 
+Existing OS fuzzers do not consider dynamic dependence between image and file operations. <br>
+**Blindly** generate system calls => Explore file system superficially<br>
+
+#### Mostly use virtualized instance
+Existing OS fuzzers mostly use virtualized instance(KVM, QEMU..) without reloading fresh OS. This leads to two issues: <br>
+Non-deterministic after numerous system calls (ex: kmalloc depends on prior allocation, behaves differently across runs)
+
+### File System Fuzzer
+To fuzz the OS -> Most fuzzer either fuzz a **binary input** or use a **sequence of system calls** <br>
+
+To fuzz file system, need to mutate two inputs:
+1. Binary image(ex: file system image)
+2. Corresponding workload(ex: set of file system specific system calls) 
+
+But combining these is not straightforward..
+
+## C. Challenges of Fuzzing a File System
+Set of challenges of fuzzing file system in linux kernel <br>
+
+### Handling large disk images as input
+To efficiently fuzz complicated, large disk image:
+1. Mutate scattered metadata in the image with checksum 
+2. Mitigate frequent disk I/O due to input manipulation 
+
+Current fuzzers fails to address above issues simultaneously <br>
+
+Ideal image fuzzer -> Should target only the metadata + Fix checksum for mutated metadata structure
+
+### Missing context-aware workloads
+File system-aware workloads => Directly affect the image <br>
+
+For example... <br>
+
+Valid file operation: Modify file objects on an image (ex: open() creates a new file and link, unlink() removes one link) <br>
+
+Existing fuzzer: Rely on predefined image information to generate system calls => Fail to comprehensively test all the accessible file objects in a target file system at runtime <br>
+
+Better Approach: Maintain runtime status of every file object on an image after performing past file operations for generating new ones 
+
+### Exploring input space in two dimensions
+File system -> Processes two types of inputs: <br>
+
+Disk images and file operations -> Organized in completely different formats (ex: binary blob v.s. Sequential operations) but have implicit connection between them <br>
+
+To explore fully explore file system => Have to mutate both of them(not supported by existing fuzzers)
+
+# DESIGN
+JANUS: feedback-driven fuzzer that mutates metadata of a seed image, while generating context-aware file operations <br>
+
