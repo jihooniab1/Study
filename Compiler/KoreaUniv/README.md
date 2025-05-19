@@ -33,7 +33,7 @@ Compiler should preserve the meaning(semantics) of the source program
 ## Front End
 Input : source program(character string) => Translate into **Intermediate Representation(IR)** <br>
 
-IR: 2-dimensional structure. Abstract-Syntax-Tree <br>
+IR: An internal representation of the source program. A common example is an Abstract Syntax Tree (AST), which is a tree structure. Other forms, such as Three-Address Code, are more linear. <br>
 
 ### Lexical Analyzer
 Character Stream -> Token Stream <br>
@@ -45,7 +45,7 @@ Token: Defined as pair of **Type** and **Value**
 ### Syntax Analyzer
 Token Stream -> Syntax Tree <br>
 
-With Syntax Tree, semantics of the program appears
+The Syntax Tree primarily represents the grammatical structure of the token stream. This structure is then utilized by the Semantic Analyzer to derive and verify the program's meaning (semantics).
 
 ![Syntax_Tree](./images/Lec1_5.png)
 
@@ -67,7 +67,7 @@ Intermediate Representation:
 - lower-level than source language
 - higher-level than target language
 
-Three-Address Code -> At most two operand on right side <br>
+Three-Address Code (TAC) instructions typically involve at most three addresses: one for the result and up to two for the source operands. A common form is `x = y op z` (e.g., `t1 = a + b`), which clearly uses three addresses. Other forms include `x = op y` (e.g., `t2 = -c`) and `x = y` (e.g., `t3 = d`). <br>
 
 Why using IR? -> Reuse, Optimization...
 
@@ -80,26 +80,24 @@ Let's look at a simple example
 
 ![Optimizer_Exmple](./images/Lec1_8.png)
 
-Following features have been applied
-
-- Constant propagation: Substitute subject of allocation into value itself
-- Deadcode elimination: Delete unnecessary code 
-- Copy elimination
+The transformation involves several optimization techniques:
+1. Original IR: `t1=10; t2=rate*t1; t3=init+t2; pos=t3`
+2. After Constant Propagation (substituting `t1`'s value): `t1=10; t2=rate*10; t3=init+t2; pos=t3`
+3. After Dead Code Elimination (removing `t1` as it's no longer used): `t2=rate*10; t3=init+t2; pos=t3`
+4. After Copy Propagation (replacing `t3` in `pos=t3` with `init+t2`) and subsequent Dead Code Elimination (removing `t3=init+t2`): `t2=rate*10; pos=init+t2` (This is the Final IR shown in the diagram).
 
 ## Back End
 IR -> Target machine code <br>
 
 Difference between high-level and low-level: <br>
 
-Register Allocation Problem: cannot use many variables in machine code <br>
-
-But this problem is NP, solvale at least
+Register Allocation Problem: Target machines have a finite number of registers, while programs may use many variables. Efficiently mapping these variables to registers is crucial. Finding an optimal register allocation is an NP-hard problem, so compilers typically use heuristics to find good, practical solutions.
 
 ## Summary
 ![summary](./images/Lec1_9.png)
 
 # Lecture 2
-Character sequence into token sequence based on **white space** <br>
+The lexical analyzer converts a stream of input characters into a stream of tokens. It identifies tokens by matching patterns (e.g., for identifiers, keywords, numbers) and uses delimiters such as whitespace, punctuation, and the start of other recognizable patterns to separate them. <br>
 
 parenthesis, char(keyword), star, if -> Thing like this are counted separately <br>
 
@@ -167,7 +165,11 @@ Implement recognized pattern with finite automata
 ### NFA
 NFA eventually means set of strings that NFA accepts(recognizable strings) <br>
 
-Lexical Analyzer: Change string into equivalent NFA -> DFA <br>
+The process of building a lexical analyzer from a set of regular expressions (which define token specifications) typically involves these steps:
+1. Each regular expression is converted into an NFA (e.g., using Thompson's construction).
+2. These individual NFAs are combined (if there are multiple token types).
+3. The resulting NFA is then converted into an equivalent DFA (e.g., using subset construction).
+This DFA is then used by the lexical analyzer at runtime to recognize tokens in the input character stream. <br>
 
 ![nfa](./images/Lec2_8.png)
 -2Q -> Power set of Q. Set of every subset of Q
@@ -204,33 +206,90 @@ Source Language:
 ![base4](./images/Lec2_14.png)
 
 ### ϵ-Closures
-ϵ-Closure(I) => Set of states reachable from I without consuming any symbols <br>
+$\epsilon\text{-Closure}(I)$ => Set of states reachable from $I$ without consuming any symbols <br>
 
 ### Running Example
-1. Initial DFA state is d0 = ϵ0Closure({0})
+This example demonstrates the subset construction algorithm, which converts an NFA to an equivalent DFA.
+Let's consider an NFA (not explicitly drawn here due to space, but assume it's defined) with the following characteristics relevant to this example:
+  - A set of states $Q_\text{NFA}$ includes $\{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, ...\}$.
+  - State $\{0\}$ is the start state of this NFA.
+  - The input alphabet $\Sigma = \{a, b, c\}$.
+  - A transition function $\delta_{NFA}$ and $\epsilon$-transitions, which lead to the results shown in the steps below.
+
+The goal is to construct a $\text{DFA } D = (Q_\text{DFA}, \sum, \delta_\text{DFA}, d_0, F_\text{DFA})$.
+
+1. **Initial DFA state $d_0$:** <br>
+The initial state of the DFA, $d_0$, is the $\epsilon\text{-closure}$ of the NFA's start state. <br>
+For our assumed NFA, let the start state be $q_0 = \{0\}$. <br>
+If there are no $\epsilon$-transitions from state $0$ to other states that would expand this set, then: <br>
+$d_0 = \epsilon\text{-closure}(\{0\}) = \{0\}$ <br>
 ![first](./images/Lec2_15.png)
-2. For initial state S, consider every x ∈ Σ and compute corresponding next state
-![second](./images/Lec2_16.png)
-3. For the state {1,2,3,4,6,9}, compute next states
+2.  **Compute transitions from $d_0$ (which is $S = \{0\}$ in this step):** <br>
+    For $d_0 = \{0\}$ and each input symbol $x \in \Sigma$, we compute $\delta_{DFA}(d_0, x) = \epsilon\text{-closure}(\text{move}(d_0, x))$. <br>
+    The operation $\text{move}(S', \text{input})$ is defined as $\bigcup_{s \in S'} \delta_{NFA}(s, \text{input})$.
+
+    The general formula for this step is shown in the image: <br>
+![tlqkf](./images/Lec2_16_1.png)
+
+    * For input symbol 'a': <br>
+        Let $S = \{0\}$. We need $\text{move}(\{0\}, a) = \bigcup_{s \in \{0\}} \delta_{NFA}(s, a)$. <br>
+        The example states: $\epsilon\text{-closure}(\bigcup_{s \in \{0\}} \delta_{NFA}(s, a)) = \{1, 2, 3, 4, 6, 9\}$. <br>
+        Let this new DFA state be $d_1 = \{1, 2, 3, 4, 6, 9\}$. So, $\delta_{DFA}(\{0\}, a) = d_1$. <br>
+
+    * For input symbol 'b': <br>
+        The example states: $\epsilon\text{-closure}(\bigcup_{s \in \{0\}} \delta_{NFA}(s, b)) = \emptyset$. <br>
+        This means $\text{move}(\{0\}, b)$ must have been $\emptyset$.
+        So, $\delta_{DFA}(\{0\}, b) = \emptyset$. (This often implies a transition to a non-accepting "dead state" in the DFA, or an error if no transition is defined). <br>
+
+    * For input symbol 'c': <br>
+        The example states: $\epsilon\text{-closure}(\bigcup_{s \in \{0\}} \delta_{NFA}(s, c)) = \emptyset$. <br>
+        So, $\delta_{DFA}(\{0\}, c) = \emptyset$. <br>
+![zzz](./images/Lec2_16_2.png)
+<br>
+3. **Compute transitions from new DFA states (e.g., $d_1 = \{1, 2, 3, 4, 6, 9\}$):** <br>
+    Now consider the new (unmarked) DFA state $d_1 = \{1, 2, 3, 4, 6, 9\}$. For each input symbol $x \in \Sigma$, compute $\delta_{DFA}(d_1, x) = \epsilon\text{-closure}(\text{move}(d_1, x))$.
+
+    * For input symbol 'a' from state $d_1$: <br>
+        The example states: $\epsilon\text{-closure}(\bigcup_{s \in \{1,2,3,4,6,9\}} \delta_{NFA}(s, a)) = \emptyset$. <br>
+        So, $\delta_{DFA}(d_1, a) = \emptyset$. <br>
+
+    * For input symbol 'b' from state $d_1$: <br>
+        The example states: $\epsilon\text{-closure}(\bigcup_{s \in \{1,2,3,4,6,9\}} \delta_{NFA}(s, b)) = \{3, 4, 5, 6, 8, 9\}$. <br>
+        Let this new DFA state be $d_2 = \{3, 4, 5, 6, 8, 9\}$. So, $\delta_{DFA}(d_1, b) = d_2$.
+
+    * For input symbol 'c' from state $d_1$: <br>
+        The example states: $\epsilon\text{-closure}(\bigcup_{s \in \{1,2,3,4,6,9\}} \delta_{NFA}(s, c)) = \{3, 4, 6, 7, 8, 9\}$. <br>
+        Let this new DFA state be $d_3 = \{3, 4, 6, 7, 8, 9\}$. So, $\delta_{DFA}(d_1, c) = d_3$. <br>
 ![third](./images/Lec2_17.png)
 
-Continue until nothing changes <br>
-
-Those states that include NFA's accepting state becomes DFA's accepting state.
+This process of taking new DFA states, computing their transitions for each symbol in $\Sigma$, and identifying further new DFA states continues until no new DFA states are generated. The set of all NFA states within a DFA state $d_i$ that are final states in the NFA determines if $d_i$ is a final state in the DFA.
 
 ### Subset Construction Algorithm
 ![algorithm](./images/Lec2_18.png)
 
 ### Algorithm for computing ϵ-Closures
-Formal definition: T = ϵ-Closure(I) is the smallest set such that <br>
+The $\epsilon$-closure of a set of NFA states $I$, denoted $\epsilon$-closure($I$), is the set of all NFA states reachable from any state $s \in I$ by following zero or more $\epsilon$-transitions.
+
+Formal definitions: (Inductive)<br>
+$\epsilon\text{-closure}(I)$ is defined as the smallest set of NFA states $T$ such that:
+1. Base Case: Every state in $I$ is in $T$ (i.e., $I \subseteq T$).
+2. Inductive Step: If a state $s$ is in $T$, and there is an $\epsilon$-transition from $s$ to $s'$ (i.e., $s' \in \delta(s, \epsilon)$ in the NFA's transition function), then $s'$ is also in $T$.
+<br>
+
+This set $T$ contains all states reachable from any state in $I$ by following zero or more $\epsilon$-transitions. <br>
+The property that $T$ is the smallest such set, closed under $\epsilon$-transitions starting from $I$, can also be characterized by the condition: <br>
 ![algo1](./images/Lec2_19.png) <br>
-Alternatively, T is the smallest solution of the equation F(X) ⊆ (X) where <br>
+This signifies that $T$ must include $I$, and any state reachable by one $\epsilon$-move from any state already in $T$ must also be part of $T$ (implying no further expansion is possible beyond $T$). <br>
+<br>
+Alternatively, as a Least Fixed Point: <br>
+We can define a function $F(X)$ that computes the set $I$ along with all states reachable in one $\epsilon$-step from states in $X$: <br>
 ![algo2](./images/Lec2_20.png) <br>
+The $\epsilon\text{-closure}(I)$ is the smallest set $T$ that satisfies the equation $T = F(T)$. <br>
+This solution T is called the least fixed point of F.<br>
+<br>
+This least fixed point can be found by iterative application of F, as shown in the algorithm below.<br>
 
-Such solution is called the **least fixed point of F** <br>
-
-Following is fixed point iteration algorithm <br>
-
+The following iterative algorithm computes this least fixed point: <br>
 ![fixed](./images/Lec2_21.png)
 
 # Lecture 3
