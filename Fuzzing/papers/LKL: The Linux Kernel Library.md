@@ -217,11 +217,11 @@ LKL => Provide a set of **API helpers** such as..
 ... <br>
 
 ## LKL Environments
-LKL: Access the environment via native operations <br>
+LKL: Access the environment via native operations
 
-Implemented the native operations in LKL itself in order to simplify development of LKL applications <br>
+Implemented the native operations in LKL itself in order to simplify development of LKL applications
 
-LKL supported environment: POSIX, NT(Windows), NTK(Windows Kernel), Apache Portable Runtime => Adding support to a new environment is straightforward <br>
+LKL supported environment: POSIX, NT(Windows), NTK(Windows Kernel), Apache Portable Runtime => Adding support to a new environment is straightforward
 
 Need to provide...
 1. Print message to a console(printk)
@@ -253,9 +253,9 @@ Interactions between the various components of the application:
 # Evaluation
 PoC LKL Applications..
 ## Portable FTP Server
-Read file and disk images formatted with Linux kernel supported file systems <br>
+Read file and disk images formatted with Linux kernel supported file systems
 
-Implementation based on *Apache Portable Runtime Library API* => Ensure portability accross platforms <br>
+Implementation based on *Apache Portable Runtime Library API* => Ensure portability accross platforms
 
 Although this is testing application, it can be really useful for those who use Linux and other OS with dual-boot or those who want read Linux formatted media in a non-Linux OS 
 
