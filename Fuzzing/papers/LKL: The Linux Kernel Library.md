@@ -208,3 +208,54 @@ Init thread:
 4. Unblocked system call wrapper: Free associated structures, Return result to the caller 
 
 ## API helpers
+There are some operations that require non-trivial amount of time to impelement, although it's possible to do only with LKL system calls <br>
+
+LKL => Provide a set of **API helpers** such as..
+1. mounting, unmounting a file system
+2. Assign IP address to an interface
+3. Add default route
+... <br>
+
+## LKL Environments
+LKL: Access the environment via native operations <br>
+
+Implemented the native operations in LKL itself in order to simplify development of LKL applications <br>
+
+LKL supported environment: POSIX, NT(Windows), NTK(Windows Kernel), Apache Portable Runtime => Adding support to a new environment is straightforward <br>
+
+Need to provide...
+1. Print message to a console(printk)
+2. Allocate, free, acquire, release semaphore
+3. Create, destroy thread
+4. allocate, free memory
+5. Retrieve current time, Schedule LKL timer interrupt some time in the future
+
+# Anatomy of a LKL Application
+Below is a few standard components of a typical LKL appliation <br> 
+![lkl](./images/LKL_3.png) <br>
+
+LKL can be configured to include the features that the applications needs:
+1. ext4 file system
+2. TCP/IP network stack
+3. application specific drivers (Linux device driver and a native stub)
+4. Implementation for the native operations (applications sharing the same environment can share this part)
+5. Application specific code
+
+Interactions between the various components of the application:
+1. Application ---LKL system call API--> Call into the Linux Kernel
+2. Linux Kernel ---issue request(ex: read/write data from disk) --> Device driver
+3. Device Driver ---call---> Native Stub
+4. Device Driver Stub: Programs request in the environment (vary with environment, system call, request to a device driver, some other environment dependent operations...)
+5. Environment ---Native IRQ, other IRQ notification---> Native Stub(Request completed)
+6. Native Stub ---LKL interrupt---> Linux Kernel(operation completed)
+7. Device Driver notify Linux Kernel that the operation has completed 
+
+# Evaluation
+PoC LKL Applications..
+## Portable FTP Server
+Read file and disk images formatted with Linux kernel supported file systems <br>
+
+Implementation based on *Apache Portable Runtime Library API* => Ensure portability accross platforms <br>
+
+Although this is testing application, it can be really useful for those who use Linux and other OS with dual-boot or those who want read Linux formatted media in a non-Linux OS 
+Performance: Similar throughput for both the **native path**(FTP daemon using a natively mounted EXT3 file system) and the **LKL path**(FTP daemon using LKL to read from a partition) <br>
