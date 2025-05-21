@@ -2,6 +2,9 @@
 
 # Index
 - [1. Introduction](#introduction)
+- [2. Architecture](#architecture)
+- [3. Anatomy of a LKL application](#anatomy-of-a-lkl-application)
+- [4. Evalutation](#evaluation)
 
 # Introduction
 Linux Kernel: One of the largest software projects in the world, high quality, complex <br>
