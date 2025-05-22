@@ -348,14 +348,17 @@ NFA 상태들의 집합 $I$에 대한 $\epsilon\text{-Closure}(I)$는 $I$에 속
   1.  기본 경우(Base Case): $I$에 속한 모든 상태는 $T$에 포함됩니다 (즉, $I \subseteq T$).
   2.  귀납적 단계(Inductive Step): 만약 상태 $s$가 $T$에 있고, $s$에서 상태 $s'$로 가는 $\epsilon$-전이 (즉, $s' \in \delta_{NFA}(s, \epsilon)$)가 존재한다면, $s'$ 또한 $T$에 포함됩니다.
   이 집합 $T$는 $I$에 있는 임의의 상태에서 $\epsilon$-전이만을 0번 이상 따라 도달할 수 있는 모든 상태를 포함합니다. $T$가 $I$에서 시작하는 $\epsilon$-전이에 대해 닫혀있는(closed) 가장 작은 집합이라는 속성은 다음 조건으로도 특징지을 수 있습니다: 
-      [이미지: Lec2_19.png ($I \cup \bigcup_{s \in T} \delta(s, \epsilon) \subseteq T$)]
-  이는 $T$가 반드시 $I$를 포함해야 하며, 이미 $T$에 있는 어떤 상태에서든 단일 $\epsilon$-이동으로 도달할 수 있는 모든 상태 또한 $T$의 일부여야 함을 의미합니다 (이는 $T$를 넘어서는 더 이상의 확장이 불가능함을 암시합니다). 
+
+      ![$I \cup \bigcup_{s \in T} \delta(s, \epsilon) \subseteq T$](./images/Lec2_19.png)
+
+        이는 $T$가 반드시 $I$를 포함해야 하며, 이미 $T$에 있는 어떤 상태에서든 단일 $\epsilon$-이동으로 도달할 수 있는 모든 상태 또한 $T$의 일부여야 함을 의미합니다 (이는 $T$를 넘어서는 더 이상의 확장이 불가능함을 암시합니다). 
 
 * **$\epsilon\text{-Closure}(I)$ 계산 알고리즘 (최소 고정점):**
   함수 $F(X) = I \cup \lbrace s' \mid s \in X \text{ and } s' \in \delta_{NFA}(s, \epsilon)\rbrace$를 정의할 수 있습니다. (이 함수는 집합 $I$와 집합 $X$의 상태들로부터 단일 $\epsilon$-단계로 도달 가능한 모든 상태들을 계산합니다.) 
-      [이미지: Lec2_20.png ($F(X) = I \cup \bigcup_{s \in X} \delta(s, \epsilon)$)]
-  그러면 $\epsilon\text{-closure}(I)$는 $T = F(T)$ 방정식을 만족하는 가장 작은 집합 $T$입니다. 이 해 $T$를 $F$의 **최소 고정점(least fixed point)**이라고 부릅니다. 
-  이 최소 고정점은 아래 제시된 반복 알고리즘처럼 $F$를 반복적으로 적용하여 찾을 수 있습니다.
+      ![$F(X) = I \cup \bigcup_{s \in X} \delta(s, \epsilon)$](./images/Lec2_20.png)
+
+    그러면 $\epsilon\text{-closure}(I)$는 $T = F(T)$ 방정식을 만족하는 가장 작은 집합 $T$입니다. 이 해 $T$를 $F$의 **최소 고정점(least fixed point)**이라고 부릅니다. 
+        이 최소 고정점은 아래 제시된 반복 알고리즘처럼 $F$를 반복적으로 적용하여 찾을 수 있습니다.
 
 * **$\epsilon\text{-Closure}(I)$ 계산을 위한 반복 알고리즘:** 
     ```
