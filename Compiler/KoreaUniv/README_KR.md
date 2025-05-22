@@ -196,9 +196,10 @@ $d_n \rightarrow r_n$ <br>
 여기서 각 $d_i$는 새로운 이름(토큰 이름 등)이며, 알파벳 $\Sigma$에는 속하지 않는 기호여야 합니다 ($d_i \notin \Sigma$). 각 $r_i$는 알파벳 $\Sigma$와 이전에 정의된 이름들 $\lbrace d_1, d_2, \dots, d_{i-1}\rbrace$을 사용하여 구성된 정규 표현식입니다. 
 
 예를 들어, 파스칼(Pascal) 언어의 식별자를 정의한다면 다음과 같이 할 수 있습니다: <br>
-`letter_` $\rightarrow A | B | \dots | Z | a | b | \dots | z | \_$ (밑줄 문자도 허용하는 경우) <br>
+
+`letter_` $\rightarrow$ $A | B | \dots | Z | a | b | \dots | z |$ _ (밑줄 문자도 허용하는 경우) <br>
 `digit` $\rightarrow 0 | 1 | \dots | 9$ <br>
-`id` $\rightarrow$ `letter_` (`letter_` | `digit`)$^*$
+`id` $\rightarrow$ `letter_` (`letter_` | `digit`)*
 
 여기서 `letter_`와 `digit`은 보조적인 이름이며, `id`가 최종적으로 식별자 토큰을 정의하는 이름이 됩니다.
 
