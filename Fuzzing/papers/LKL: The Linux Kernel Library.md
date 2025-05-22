@@ -2,6 +2,9 @@
 
 # Index
 - [1. Introduction](#introduction)
+- [2. Architecture](#architecture)
+- [3. Anatomy of a LKL application](#anatomy-of-a-lkl-application)
+- [4. Evalutation](#evaluation)
 
 # Introduction
 Linux Kernel: One of the largest software projects in the world, high quality, complex <br>
@@ -56,7 +59,7 @@ Instead, the applications needs to provide implementations for a small set of en
 LKL system call interface => API based on the Linux system call interface, Offer a stable and familiar API to applications 
 
 ## The LKL Architecture
-LKL port => Interact with applications via an interface which includes the LKL native operations => **LKL system call**, **Interrupr-like API** (notify the Linux kernel about external events) <br>
+LKL port => Interact with applications via an interface which includes the LKL native operations => **LKL system call**, **Interrupt-like API** (notify the Linux kernel about external events) <br>
 
 Not all primitives (that need to be ofered by an architecture layer for a full Linux port) were required <br>
 
@@ -71,3 +74,192 @@ Do not even need some of the user space abstractions that the kernel offers (lik
 Most visible effect: Can directly link LKL into the application
 
 ### Memory Managment Support
+LKL: Doest not require memory protection mechanism => LKL just needs a **physical** memory pool that hte kernel can use <br>
+
+Actual memory reservation => Under control of the application (Controls both the allocation mechanism adn the size of the memory pool) <br>
+
+Poll of memory => Managed by kernel using a mix of **buddy, SLUB/SLAB/SLOB/SLQB** algorithms, Only be used for buffers and structures dynamically allocated by the kernel <br>
+
+Kernel code, statically allocated data => Managed by the external environment that loads LKL, not part of this poll <br>
+
+Some subsystems such as VFS need virtual memory management support. <br>
+
+Linux kernel => Implements virtual management API even on architectures that don't have a MMU => No MMU emulation is needed in LKL itself, just need to declare LKL as a non-MMU architecture
+
+### Thread Support
+Need to offer support for kernel threads <br>
+
+Linux kernel uses such threads for internal house-keeping, like processing I/O requests, running softirqs, or workqueues <br>
+
+Complete internal implementation of threads => Have variou limitations <br>
+
+For example... <br>
+
+Implementation based on **setjmp - longjmp** require usage of single stack space partitioned between all threads <br>
+
+Linux kernel uses deep stacks (especially in the VFS layer) => Environment with small stack sizes (ex: inside another operating system's kernel), will place very low limit of number of possible threads <br>
+
+Deferred actual implementation => Requirements for application: **Create a new thread, and terminate thread**
+
+### Thread Switching
+Threads used by LKL: implicitly scheduled by the environment, but Linux needs to control scheduling of its threads to function correctly and efficiently <br>
+
+RCU(Read-copy update) -> Make assumptions about scheduling policies: Linux threads synchronized with Linux semaphores need to sleep and switch to other Linux threads <br>
+
+To regain control of scheduling, generic LKL architecture layer associates an environment-provided semaphore with each LKL thread <br>
+
+![thread](./images/LKL_2.png) <br>
+
+Immediately after creation, and before runnnig any Linux code, ach LKL acquires its corresponding semaphore, and gets blocked as the semaphore's initial value is 0 <br>
+
+When the Linux scheduler selects a new thread to run -> Releases the semaphore of the new thread and immediately acquires its own semaphore <br>
+
+New thread will begin running and the old one stops <br>
+
+Token passing mechanism => Ensure that only one thread running and the scheduling order is dictated by the Linux scheduler <br>
+
+Semaphore: Must provided by the environment as a set of native operation <br>
+
+Allocate, free, up, down basuc semaphore operations required
+
+### IRQ Support
+Typical scenario: Application that uses LKL needs to have LKL interact with some external entity <br>
+
+Ex: Driver for another OS for a Linux file system like ext4, needs to read data from disk <br>
+
+Such application will use two device drivers: Linux block device and a native kernel device driver <br>
+
+Linux Device => Will act as translator between the Linux kernel and the native kernel(host): Linux device driver programs an **I/O request** by calling the native device driver => Programs the hardware to do the I/O operation <br>
+
+Application --I/O request--> Linux Kernel (in LKL) --I/O request--> LKL block device driver --calls--> Native kernel device driver --programs--> Hardware <br> 
+
+At some point hardware device completes I/O operation and generates a native IRQ => Native device driver processes it, and needs to signal to Linux Kernel<br>
+
+Native IRQ is **asynchronous** => Need to signal the Linux kernel asynchronously that the I/O operation has been completed => **IRQ support required in LKL** <br>
+
+Part of the API that LKL offers: Operations to trigger IRQ <br>
+
+Application specify IRQ number it wants to generate and, optionally some data(pointer) <br>
+
+Simple IRQ => When driver has nothing to communicate apart from interrupt generation <br>
+
+Timer interrupts => Example of simple IRQ, timer: periodic events and the kenrel knows the period <br>
+
+**with data IRQ** => Used by native device drivers to communicate the context of the IRQ(ex: Completion status, completed operation) to Linux device driver <br>
+Current Implementation of LKL: NO SMP, preemptive support <br>
+Native environment could be SMP and and could trigger IRQs from a thread running parallel to the currently active LKL thread <br>
+
+Since LKL only supports single thread... => Need to serialize IRQs handlers and LKL kernel threads => Create queue of uotstanding IRQs (Handled serially from the idle thread )
+
+### Idle CPU Support
+When no thread runnalbe -> Linux runs the so called **idle thread** <br>
+
+Idle thread: Throttle down the CPU via special architecture specific CPU instructions <br>
+
+Ideally, CPU should enter a low power mode and stay until an asynchronous evnet liks an IRQ wakes up <br>
+
+LKL -> No access to the necessary low level CPU instructions, Even avaiable, inappropriate to throttle down the CPU <br>
+
+On the other hand, busy waiting for simulated IRQs -> Wastes power and hogs the CPU <br>
+
+**Proper way to handle the ide CPU issue**: Put the idle thread to sleep (when there's nothing to do) and wake it up when an IRQ has been signaled <br>
+
+However, LKL doesn't control native thread scheduling, it needs help from the application efficiently manage the idle state <br>
+
+Initially => Required the application to provide two native opertions: **enter_idle**, **exit_idle** <br>
+
+enter_idle: Called from within the idle thread <br>
+exit_idle: Called by the IRQ triggering routine <br>
+
+Typical implementation: semaphore down for enter_idle, semaphore up for exit_idle => Discontinued because of need of semaphores in other components <br>
+
+Now require basic semaphore operations from the environments => Simplify both our implementation and the native operations requirement 
+
+### Time and Timers Support
+Time support: Core components of modern Operating System =><br>
+filesystem(timestamp), network stack(Use timer extensively), RCU synchronization(requires timer) <br>
+
+LKL: Require both a **timer** and a **time source** which must be provided by the application via two native operations:
+1. Return number of nanoseconds that passed since the start of the Unix epoch
+2. Should receive the number of nanoseconds after which the application should trigger an IR\LTIMER interrupt 
+
+## LKL System Call API
+LKL => Offers a subset of the Linux system calls to the application in the form of **API** <br>
+
+LKL is linked into the application => **Can** make direct calls to any exported kernel function(not appropriate, bypass kernel safeguard) <br>
+
+Should only make use of the public kernel API => **System Call** <br>
+
+LKL => No SMP support, directly invoking system call is not appropriate(Race between system call handler, kernel threads, IRQ handlers, etc.) <br>
+
+Need to properly serialize system call handlers with respect to LKL threads and IRQ handlers <br>
+
+1. Applications => Accesses the kernel through a set of **predefined system call wrappers**
+2. wrapper function => Issue **with data IRQ** with the IRQ number set to *IRQ_SYSCALL* and the data set to a structure that the syscall number and parameters are stored
+Slot for the system call result -> initialized, New native semaphore -> allocated (Stored in same structure)
+3. Calling thread sleeps on the semaphore until the system call results are ready 
+4. IRQ handler adds all system call requests to a **work_queue** 
+
+Linux kernel runs **init** process after initialization => LKL cannot do that (Does not support user space processes) <br>
+
+Instead, LKL runs a special-purpose routine => Waits for events on the system call **work_queue** <br>
+
+Init thread:
+1.Calls appropriate system call handler
+2.Puts the returned value in the result field of the structure associated with the system call
+3.Releases its semaphore unblocking the original calling thread 
+4. Unblocked system call wrapper: Free associated structures, Return result to the caller 
+
+## API helpers
+There are some operations that require non-trivial amount of time to impelement, although it's possible to do only with LKL system calls <br>
+
+LKL => Provide a set of **API helpers** such as..
+1. mounting, unmounting a file system
+2. Assign IP address to an interface
+3. Add default route
+... <br>
+
+## LKL Environments
+LKL: Access the environment via native operations
+
+Implemented the native operations in LKL itself in order to simplify development of LKL applications
+
+LKL supported environment: POSIX, NT(Windows), NTK(Windows Kernel), Apache Portable Runtime => Adding support to a new environment is straightforward
+
+Need to provide...
+1. Print message to a console(printk)
+2. Allocate, free, acquire, release semaphore
+3. Create, destroy thread
+4. allocate, free memory
+5. Retrieve current time, Schedule LKL timer interrupt some time in the future
+
+# Anatomy of a LKL Application
+Below is a few standard components of a typical LKL appliation <br> 
+![lkl](./images/LKL_3.png) <br>
+
+LKL can be configured to include the features that the applications needs:
+1. ext4 file system
+2. TCP/IP network stack
+3. application specific drivers (Linux device driver and a native stub)
+4. Implementation for the native operations (applications sharing the same environment can share this part)
+5. Application specific code
+
+Interactions between the various components of the application:
+1. Application ---LKL system call API--> Call into the Linux Kernel
+2. Linux Kernel ---issue request(ex: read/write data from disk) --> Device driver
+3. Device Driver ---call---> Native Stub
+4. Device Driver Stub: Programs request in the environment (vary with environment, system call, request to a device driver, some other environment dependent operations...)
+5. Environment ---Native IRQ, other IRQ notification---> Native Stub(Request completed)
+6. Native Stub ---LKL interrupt---> Linux Kernel(operation completed)
+7. Device Driver notify Linux Kernel that the operation has completed 
+
+# Evaluation
+PoC LKL Applications..
+## Portable FTP Server
+Read file and disk images formatted with Linux kernel supported file systems
+
+Implementation based on *Apache Portable Runtime Library API* => Ensure portability accross platforms
+
+Although this is testing application, it can be really useful for those who use Linux and other OS with dual-boot or those who want read Linux formatted media in a non-Linux OS 
+
+Performance: Similar throughput for both the **native path**(FTP daemon using a natively mounted EXT3 file system) and the **LKL path**(FTP daemon using LKL to read from a partition) <br>
