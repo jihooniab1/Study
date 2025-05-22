@@ -133,11 +133,11 @@ float match0 (char *s) /* find a zero */
 - 문자열 $w$에 포함된 기호의 개수를 $w$의 **길이(length)** 라고 하며 $|w|$로 표기합니다. 빈 문자열의 길이는 $|\epsilon|=0$이며, 어떤 문자열 $v$에 기호 하나 $a$를 연결한 $va$의 길이는 $|v|+1$입니다 (여기서 $a$는 단일 기호).
 - 문자열 $w$가 $vu$의 형태로 표현될 때, $v$를 $w$의 접두사(prefix), $u$를 $w$의 **접미사(suffix)** 라고 합니다.
 - $\Sigma^k$는 알파벳 $\Sigma$에 속한 기호들로 만들 수 있는 길이가 정확히 $k$인 모든 문자열의 집합을 나타냅니다.
-- $\Sigma^*$는 알파벳 $\Sigma$로 만들 수 있는 모든 길이의 문자열 집합을 의미하며, 빈 문자열 $\epsilon$을 포함합니다 ($\Sigma^* = \Sigma^0 \cup \Sigma^1 \cup \Sigma^2 \cup \dots = \bigcup_{i \in \mathbb{N}} \Sigma^i$).
-- $\Sigma^+$는 $\Sigma^*$에서 빈 문자열 $\epsilon$을 제외한, 즉 길이가 1 이상인 모든 문자열의 집합입니다 ($\Sigma^+ = \Sigma^1 \cup \Sigma^2 \cup \dots = \Sigma^* \setminus \{\epsilon\}$).
+- $\Sigma^\star$는 알파벳 $\Sigma$로 만들 수 있는 모든 길이의 문자열 집합을 의미하며, 빈 문자열 $\epsilon$을 포함합니다 ($\Sigma^\star = \Sigma^0 \cup \Sigma^1 \cup \Sigma^2 \cup \dots = \bigcup_{i \in \mathbb{N}} \Sigma^i$).
+- $\Sigma^+$는 $\Sigma^\star$에서 빈 문자열 $\epsilon$을 제외한, 즉 길이가 1 이상인 모든 문자열의 집합입니다 ($\Sigma^+ = \Sigma^1 \cup \Sigma^2 \cup \dots = \Sigma^\star \setminus \{\epsilon\}$).
 
 ### 1.3. 언어 (Languages)
-형식 언어 이론에서 언어(language) $L$은 특정 알파벳 $\Sigma$로부터 생성될 수 있는 모든 문자열의 집합인 $\Sigma^*$의 부분집합($L \subseteq \Sigma^*$)으로 정의됩니다. 즉, 어떤 규칙이나 조건을 만족하는 문자열들의 모임입니다.
+형식 언어 이론에서 언어(language) $L$은 특정 알파벳 $\Sigma$로부터 생성될 수 있는 모든 문자열의 집합인 $\Sigma^\star$의 부분집합($L \subseteq \Sigma^\star$)으로 정의됩니다. 즉, 어떤 규칙이나 조건을 만족하는 문자열들의 모임입니다.
 
 언어들 사이에는 다음과 같은 연산들이 정의될 수 있습니다:
 
@@ -145,13 +145,13 @@ float match0 (char *s) /* find a zero */
 - 교집합 (Intersection): $L_1 \cap L_2 = \lbrace w \mid w \in L_1 \text{ and } w \in L_2\rbrace$
 - 차집합 (Difference): $L_1 - L_2 = \lbrace w \mid w \in L_1 \text{ and } w \notin L_2\rbrace$
 - 역순 (Reverse): $L^R = \lbrace w^R \mid w \in L\rbrace$
-- 여집합 (Complement): $\overline{L} = \Sigma^* - L$
+- 여집합 (Complement): $\overline{L} = \Sigma^\star - L$
 - 연결 (Concatenation): $L_1 L_2 = \lbrace xy \mid x \in L_1 \text{ and } y \in L_2\rbrace$ (언어 $L_1$의 문자열과 언어 $L_2$의 문자열을 순서대로 연결하여 만들 수 있는 모든 문자열의 집합)
 - 거듭제곱 (Power): $L^n$은 언어 $L$을 $n$번 연결한 것입니다.
 $L^0 = {\epsilon}$ (정의에 따라 빈 문자열만을 원소로 가짐)
 $L^n = L L^{n-1}$ (또는 $L^{n-1}L$) ($n \ge 1$)
-- 스타 클로저 (Star-closure 또는 Kleene closure): $L^*$는 언어 $L$의 문자열들을 0번 이상 연결하여 만들 수 있는 모든 문자열의 집합입니다. 즉, $L^* = L^0 \cup L^1 \cup L^2 \cup \dots = \bigcup_{i \ge 0} L^i$.
-- 양성 클로저 (Positive closure): $L^+$는 언어 $L$의 문자열들을 1번 이상 연결하여 만들 수 있는 모든 문자열의 집합입니다. 즉, $L^+ = L^1 \cup L^2 \cup L^3 \cup \dots = \bigcup_{i \ge 1} L^i$. 이는 $L^* = L^+ \cup \lbrace \epsilon\rbrace$ (단, $L$이 $\epsilon$을 포함하지 않을 경우) 또는 $L^+ = L L^*$ 관계를 가집니다.
+- 스타 클로저 (Star-closure 또는 Kleene closure): $L^\star$는 언어 $L$의 문자열들을 0번 이상 연결하여 만들 수 있는 모든 문자열의 집합입니다. 즉, $L^\star = L^0 \cup L^1 \cup L^2 \cup \dots = \bigcup_{i \ge 0} L^i$.
+- 양성 클로저 (Positive closure): $L^+$는 언어 $L$의 문자열들을 1번 이상 연결하여 만들 수 있는 모든 문자열의 집합입니다. 즉, $L^+ = L^1 \cup L^2 \cup L^3 \cup \dots = \bigcup_{i \ge 1} L^i$. 이는 $L^\star = L^+ \cup \lbrace \epsilon\rbrace$ (단, $L$이 $\epsilon$을 포함하지 않을 경우) 또는 $L^+ = L L^\star$ 관계를 가집니다.
 
 ### 1.4. 정규 표현식 (Regular Expressions)
 정규 표현식(Regular Expression, RE)은 특정 규칙을 가진 문자열의 집합, 즉 **정규 언어(Regular Language)** 를 간결하게 명시하기 위해 사용되는 **메타 언어(meta-language)** 입니다. 어휘 분석에서는 다양한 토큰의 패턴(예: 식별자, 숫자, 특정 키워드)을 정의하는 데 주로 활용됩니다. 정규 표현식 자체도 하나의 언어이므로, 고유한 구문(syntax)과 의미(semantics)를 가집니다. 
@@ -166,7 +166,7 @@ $L^n = L L^{n-1}$ (또는 $L^{n-1}L$) ($n \ge 1$)
 * **연산 (Operations):**
     * $R_1 | R_2$ (선택, Alternation): $R_1$이 나타내는 언어와 $R_2$가 나타내는 언어의 **합집합** 을 의미합니다. 즉, $R_1$에 속하거나 $R_2$에 속하는 문자열들을 나타냅니다. (때로는 $R_1 + R_2$로 표기하기도 합니다.)
     * $R_1 R_2$ (연결, Concatenation): $R_1$이 나타내는 언어의 문자열 뒤에 $R_2$가 나타내는 언어의 문자열을 이어 붙여 만들어지는 모든 문자열의 집합을 의미합니다. (때로는 $R_1 \cdot R_2$로 표기하기도 합니다.)
-    * $R^*$ (스타 클로저, Star Closure 또는 Kleene Closure): $R$이 나타내는 언어의 문자열을 0번 이상 반복하여 연결한 모든 문자열의 집합을 의미합니다. (예: $a^*$는 $\epsilon, a, aa, aaa, \dots$를 포함합니다.)
+    * $R^\star$ (스타 클로저, Star Closure 또는 Kleene Closure): $R$이 나타내는 언어의 문자열을 0번 이상 반복하여 연결한 모든 문자열의 집합을 의미합니다. (예: $a^\star$는 $\epsilon, a, aa, aaa, \dots$를 포함합니다.)
 * **괄호 (Parentheses):**
     * $(R)$: 정규 표현식 $R$과 동일한 언어를 나타내며, 연산의 우선순위를 명확히 하거나 그룹핑하는 데 사용됩니다.
 
@@ -174,14 +174,14 @@ $L^n = L L^{n-1}$ (또는 $L^{n-1}L$) ($n \ge 1$)
 
 #### 정규 표현식의 의미 (Semantics)
 
-정규 표현식 $R$의 의미는 $R$이 나타내는 언어, 즉 문자열의 집합 $L(R)$로 정의됩니다. $L(R)$은 항상 $\Sigma^*$의 부분집합입니다. 
+정규 표현식 $R$의 의미는 $R$이 나타내는 언어, 즉 문자열의 집합 $L(R)$로 정의됩니다. $L(R)$은 항상 $\Sigma^\star$의 부분집합입니다. 
 
 * $L(\emptyset) = \emptyset$ (빈 집합) 
 * $L(\epsilon) = \lbrace \epsilon\rbrace$ (빈 문자열만을 원소로 갖는 집합) 
 * 알파벳 기호 $a \in \Sigma$에 대해, $L(a) = \lbrace a\rbrace$ (문자열 $a$만을 원소로 갖는 집합) 
 * $L(R_1 | R_2) = L(R_1) \cup L(R_2)$ (두 언어의 합집합) 
 * $L(R_1 R_2) = L(R_1)L(R_2)$ (두 언어의 연결) 
-* $L(R^*) = (L(R))^*$ (언어 $L(R)$의 스타 클로저) 
+* $L(R^\star) = (L(R))^\star$ (언어 $L(R)$의 스타 클로저) 
 * $L((R)) = L(R)$ (괄호는 언어의 의미를 바꾸지 않음) 
 
 ### 1.5. 정규 정의 (Regular Definitions)
@@ -206,12 +206,12 @@ $d_n \rightarrow r_n$ <br>
 ### 1.6. 정규 표현식의 확장 (Extensions of Regular Expressions)
 가독성과 편의성을 위해 기본적인 정규 표현식 외에 다음과 같은 확장된 표기법들이 자주 사용됩니다: 
 
-* **양성 클로저 (Positive Closure) $R^+$**: $R$이 한 번 이상 반복되는 것을 의미합니다. 즉, $L(R^+) = L(R)^+ = L(R R^*) = L(R^* R)$ 입니다. 
+* **양성 클로저 (Positive Closure) $R^+$**: $R$이 한 번 이상 반복되는 것을 의미합니다. 즉, $L(R^+) = L(R)^+ = L(R R^\star) = L(R^\star R)$ 입니다. 
 * **선택적 발생 (Zero or One Instance) $R?$**: $R$이 0번 또는 1번 발생하는 것을 의미합니다. 즉, $L(R?) = L(R) \cup \lbrace \epsilon\rbrace$ 입니다. 
 * **문자 클래스 (Character Classes) `[a_1a_2...a_n]`**: $a_1 | a_2 | \dots | a_n$을 간략하게 표현한 것입니다. 예를 들어 `[abc]`는 `a|b|c`와 같습니다. 
 * **범위 지정 문자 클래스 `[a_1-a_n]`**: 연속된 기호들을 나타냅니다. 예를 들어 `[a-z]`는 `a|b|\dots|z`와 같으며, 보통 알파벳 소문자 전체를 의미합니다. `[0-9]`는 숫자 하나를 의미합니다.
 
-이러한 확장 표기법들은 기본적인 정규 표현식 연산들(선택, 연결, 스타 클로저)을 사용하여 모두 동등한 기본 정규 표현식으로 변환될 수 있습니다. 예를 들어, $R^+ = R R^*$ 이고, $R? = R | \epsilon$ 입니다.
+이러한 확장 표기법들은 기본적인 정규 표현식 연산들(선택, 연결, 스타 클로저)을 사용하여 모두 동등한 기본 정규 표현식으로 변환될 수 있습니다. 예를 들어, $R^+ = R R^\star$ 이고, $R? = R | \epsilon$ 입니다.
 
 ## 2. 문자열 인식과 유한 오토마타 (String Recognition by Finite Automata) 💻
 
@@ -319,16 +319,16 @@ DFA 또한 5개의 구성요소로 이루어진 튜플 $M = (Q, \Sigma, \delta, 
     
     ![$R = R_1 \cdot R_2$ 다이어그램](./images/Lec2_13.png)
 
-5.  **정규 표현식 $R = R_1^*$ (스타 클로저, Kleene Closure):** 
+5.  **정규 표현식 $R = R_1^\star$ (스타 클로저, Kleene Closure):** 
     $R_1$에 대한 NFA $N(R_1)$을 먼저 구성합니다.
     새로운 초기 상태 $i$와 새로운 종료 상태 $f$를 만듭니다.
     * $i$에서 $f$로 $\epsilon$-전이를 추가합니다 (0번 반복을 위함).
     * $i$에서 $N(R_1)$의 초기 상태로 $\epsilon$-전이를 추가합니다.
     * $N(R_1)$의 종료 상태에서 $f$로 $\epsilon$-전이를 추가합니다.
     * $N(R_1)$의 종료 상태에서 $N(R_1)$의 초기 상태로 $\epsilon$-전이를 추가합니다 (1번 이상 반복을 위함).
-    $L(N(R)) = (L(N(R_1)))^*$
+    $L(N(R)) = (L(N(R_1)))^\star$
 
-    ![$R = R_1^*$ 다이어그램](./images/Lec2_14.png)
+    ![$R = R_1^\star$ 다이어그램](./images/Lec2_14.png)
 
 *(참고: $R = \emptyset$ 에 대한 NFA는 시작 상태와 도달 불가능한 종료 상태, 또는 종료 상태가 없는 형태로 구성하여 어떤 문자열도 받아들이지 않도록 합니다. )*
 
