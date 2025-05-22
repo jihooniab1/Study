@@ -122,7 +122,7 @@ float match0 (char *s) /* find a zero */
 어휘 분석의 가장 기본적인 출발점은 토큰으로 인식될 문자열 패턴을 정의하는 것입니다. 이를 위해 형식 언어 이론의 개념들이 사용됩니다.
 
 ### 1.1. 알파벳 (Alphabet)
-알파벳(alphabet) $\Sigma$는 문자(character) 또는 기호(symbol)들의 유한하고 비어있지 않은 집합(finite, non-empty set)을 의미합니다. 예를 들어, C 언어의 알파벳은 ASCII 문자 집합이 될 수 있고, 이진수를 다룬다면 알파벳은 $\left\{0, 1\right\}$이 됩니다.
+알파벳(alphabet) $\Sigma$는 문자(character) 또는 기호(symbol)들의 유한하고 비어있지 않은 집합(finite, non-empty set)을 의미합니다. 예를 들어, C 언어의 알파벳은 ASCII 문자 집합이 될 수 있고, 이진수를 다룬다면 알파벳은 $\left\lbrace0, 1\right\rbrace$이 됩니다.
 
 ### 1.2. 문자열 (Strings)
 문자열(string)은 특정 알파벳 $\Sigma$에 속한 기호들을 유한하게 나열한 순서(finite sequence)입니다.
@@ -134,24 +134,24 @@ float match0 (char *s) /* find a zero */
 - 문자열 $w$가 $vu$의 형태로 표현될 때, $v$를 $w$의 접두사(prefix), $u$를 $w$의 **접미사(suffix)** 라고 합니다.
 - $\Sigma^k$는 알파벳 $\Sigma$에 속한 기호들로 만들 수 있는 길이가 정확히 $k$인 모든 문자열의 집합을 나타냅니다.
 - $\Sigma^*$는 알파벳 $\Sigma$로 만들 수 있는 모든 길이의 문자열 집합을 의미하며, 빈 문자열 $\epsilon$을 포함합니다 ($\Sigma^* = \Sigma^0 \cup \Sigma^1 \cup \Sigma^2 \cup \dots = \bigcup_{i \in \mathbb{N}} \Sigma^i$).
-- $\Sigma^+$는 $\Sigma^*$에서 빈 문자열 $\epsilon$을 제외한, 즉 길이가 1 이상인 모든 문자열의 집합입니다 ($\Sigma^+ = \Sigma^1 \cup \Sigma^2 \cup \dots = \Sigma^* \setminus \{\epsilon\}$).
+- $\Sigma^+$는 $\Sigma^*$에서 빈 문자열 $\epsilon$을 제외한, 즉 길이가 1 이상인 모든 문자열의 집합입니다 ($\Sigma^+ = \Sigma^1 \cup \Sigma^2 \cup \dots = \Sigma^* \setminus \lbrace\epsilon\rbrace$).
 
 ### 1.3. 언어 (Languages)
 형식 언어 이론에서 언어(language) $L$은 특정 알파벳 $\Sigma$로부터 생성될 수 있는 모든 문자열의 집합인 $\Sigma^*$의 부분집합($L \subseteq \Sigma^*$)으로 정의됩니다. 즉, 어떤 규칙이나 조건을 만족하는 문자열들의 모임입니다.
 
 언어들 사이에는 다음과 같은 연산들이 정의될 수 있습니다:
 
-- 합집합 (Union): $L_1 \cup L_2 = \left\{w \mid w \in L_1 \text{ or } w \in L_2\right\}$
-- 교집합 (Intersection): $L_1 \cap L_2 = \left\{w \mid w \in L_1 \text{ and } w \in L_2\right\}$
-- 차집합 (Difference): $L_1 - L_2 = \left\{w \mid w \in L_1 \text{ and } w \notin L_2\right\}$
-- 역순 (Reverse): $L^R = \left\{w^R \mid w \in L\right\}$
+- 합집합 (Union): $L_1 \cup L_2 = \left\lbracew \mid w \in L_1 \text{ or } w \in L_2\right\rbrace$
+- 교집합 (Intersection): $L_1 \cap L_2 = \left\lbracew \mid w \in L_1 \text{ and } w \in L_2\right\rbrace$
+- 차집합 (Difference): $L_1 - L_2 = \left\lbracew \mid w \in L_1 \text{ and } w \notin L_2\right\rbrace$
+- 역순 (Reverse): $L^R = \left\lbracew^R \mid w \in L\right\rbrace$
 - 여집합 (Complement): $\overline{L} = \Sigma^* - L$
-- 연결 (Concatenation): $L_1 L_2 = \left\{xy \mid x \in L_1 \text{ and } y \in L_2\right\}$ (언어 $L_1$의 문자열과 언어 $L_2$의 문자열을 순서대로 연결하여 만들 수 있는 모든 문자열의 집합)
+- 연결 (Concatenation): $L_1 L_2 = \left\lbracexy \mid x \in L_1 \text{ and } y \in L_2\right\rbrace$ (언어 $L_1$의 문자열과 언어 $L_2$의 문자열을 순서대로 연결하여 만들 수 있는 모든 문자열의 집합)
 - 거듭제곱 (Power): $L^n$은 언어 $L$을 $n$번 연결한 것입니다.
 $L^0 = {\epsilon}$ (정의에 따라 빈 문자열만을 원소로 가짐)
 $L^n = L L^{n-1}$ (또는 $L^{n-1}L$) ($n \ge 1$)
 - 스타 클로저 (Star-closure 또는 Kleene closure): $L^*$는 언어 $L$의 문자열들을 0번 이상 연결하여 만들 수 있는 모든 문자열의 집합입니다. 즉, $L^* = L^0 \cup L^1 \cup L^2 \cup \dots = \bigcup_{i \ge 0} L^i$.
-- 양성 클로저 (Positive closure): $L^+$는 언어 $L$의 문자열들을 1번 이상 연결하여 만들 수 있는 모든 문자열의 집합입니다. 즉, $L^+ = L^1 \cup L^2 \cup L^3 \cup \dots = \bigcup_{i \ge 1} L^i$. 이는 $L^* = L^+ \cup \left\{\epsilon\right\}$ (단, $L$이 $\epsilon$을 포함하지 않을 경우) 또는 $L^+ = L L^*$ 관계를 가집니다.
+- 양성 클로저 (Positive closure): $L^+$는 언어 $L$의 문자열들을 1번 이상 연결하여 만들 수 있는 모든 문자열의 집합입니다. 즉, $L^+ = L^1 \cup L^2 \cup L^3 \cup \dots = \bigcup_{i \ge 1} L^i$. 이는 $L^* = L^+ \cup \left\lbrace\epsilon\right\rbrace$ (단, $L$이 $\epsilon$을 포함하지 않을 경우) 또는 $L^+ = L L^*$ 관계를 가집니다.
 
 ### 1.4. 정규 표현식 (Regular Expressions)
 정규 표현식(Regular Expression, RE)은 특정 규칙을 가진 문자열의 집합, 즉 **정규 언어(Regular Language)** 를 간결하게 명시하기 위해 사용되는 **메타 언어(meta-language)** 입니다. 어휘 분석에서는 다양한 토큰의 패턴(예: 식별자, 숫자, 특정 키워드)을 정의하는 데 주로 활용됩니다. 정규 표현식 자체도 하나의 언어이므로, 고유한 구문(syntax)과 의미(semantics)를 가집니다. 
@@ -177,8 +177,8 @@ $L^n = L L^{n-1}$ (또는 $L^{n-1}L$) ($n \ge 1$)
 정규 표현식 $R$의 의미는 $R$이 나타내는 언어, 즉 문자열의 집합 $L(R)$로 정의됩니다. $L(R)$은 항상 $\Sigma^*$의 부분집합입니다. 
 
 * $L(\emptyset) = \emptyset$ (빈 집합) 
-* $L(\epsilon) = \left\{\epsilon\right\}$ (빈 문자열만을 원소로 갖는 집합) 
-* 알파벳 기호 $a \in \Sigma$에 대해, $L(a) = \left\{a\right\}$ (문자열 $a$만을 원소로 갖는 집합) 
+* $L(\epsilon) = \left\lbrace\epsilon\right\rbrace$ (빈 문자열만을 원소로 갖는 집합) 
+* 알파벳 기호 $a \in \Sigma$에 대해, $L(a) = \left\lbracea\right\rbrace$ (문자열 $a$만을 원소로 갖는 집합) 
 * $L(R_1 | R_2) = L(R_1) \cup L(R_2)$ (두 언어의 합집합) 
 * $L(R_1 R_2) = L(R_1)L(R_2)$ (두 언어의 연결) 
 * $L(R^*) = (L(R))^*$ (언어 $L(R)$의 스타 클로저) 
@@ -193,7 +193,7 @@ $d_2 \rightarrow r_2$ <br>
 $\dots$ <br>
 $d_n \rightarrow r_n$ <br>
 
-여기서 각 $d_i$는 새로운 이름(토큰 이름 등)이며, 알파벳 $\Sigma$에는 속하지 않는 기호여야 합니다 ($d_i \notin \Sigma$). 각 $r_i$는 알파벳 $\Sigma$와 이전에 정의된 이름들 $\left\{d_1, d_2, \dots, d_{i-1}\right\}$을 사용하여 구성된 정규 표현식입니다. 
+여기서 각 $d_i$는 새로운 이름(토큰 이름 등)이며, 알파벳 $\Sigma$에는 속하지 않는 기호여야 합니다 ($d_i \notin \Sigma$). 각 $r_i$는 알파벳 $\Sigma$와 이전에 정의된 이름들 $\left\lbraced_1, d_2, \dots, d_{i-1}\right\rbrace$을 사용하여 구성된 정규 표현식입니다. 
 
 예를 들어, 파스칼(Pascal) 언어의 식별자를 정의한다면 다음과 같이 할 수 있습니다: <br>
 `letter_` $\rightarrow A | B | \dots | Z | a | b | \dots | z | \_$ (밑줄 문자도 허용하는 경우) <br>
@@ -206,7 +206,7 @@ $d_n \rightarrow r_n$ <br>
 가독성과 편의성을 위해 기본적인 정규 표현식 외에 다음과 같은 확장된 표기법들이 자주 사용됩니다: 
 
 * **양성 클로저 (Positive Closure) $R^+$**: $R$이 한 번 이상 반복되는 것을 의미합니다. 즉, $L(R^+) = L(R)^+ = L(R R^*) = L(R^* R)$ 입니다. 
-* **선택적 발생 (Zero or One Instance) $R?$**: $R$이 0번 또는 1번 발생하는 것을 의미합니다. 즉, $L(R?) = L(R) \cup \left\{\epsilon\right\}$ 입니다. 
+* **선택적 발생 (Zero or One Instance) $R?$**: $R$이 0번 또는 1번 발생하는 것을 의미합니다. 즉, $L(R?) = L(R) \cup \left\lbrace\epsilon\right\rbrace$ 입니다. 
 * **문자 클래스 (Character Classes) `[a_1a_2...a_n]`**: $a_1 | a_2 | \dots | a_n$을 간략하게 표현한 것입니다. 예를 들어 `[abc]`는 `a|b|c`와 같습니다. 
 * **범위 지정 문자 클래스 `[a_1-a_n]`**: 연속된 기호들을 나타냅니다. 예를 들어 `[a-z]`는 `a|b|\dots|z`와 같으며, 보통 알파벳 소문자 전체를 의미합니다. `[0-9]`는 숫자 하나를 의미합니다.
 
@@ -239,7 +239,7 @@ NFA는 5개의 구성요소로 이루어진 튜플(tuple) $M = (Q, \Sigma, \delt
 
 * $Q$: 유한한 **상태(state)** 들의 집합입니다.
 * $\Sigma$: 유한한 **입력 기호(input symbol)** 들의 집합, 즉 **입력 알파벳(input alphabet)** 입니다. $\epsilon$ (빈 문자열)은 입력 알파벳에 포함되지 않는다고 가정합니다 ($\epsilon \notin \Sigma$). 
-* $\delta$: **전이 함수(transition function)** 이며, $Q \times (\Sigma \cup \left\{\epsilon\right\}) \rightarrow 2^Q$ 형태를 가집니다. 즉, 특정 상태에서 특정 입력 기호(또는 $\epsilon$)를 받았을 때, 전이할 수 있는 다음 상태들의 **집합**(멱집합 $2^Q$의 원소)을 반환합니다. 이것이 NFA의 비결정성을 나타내는 핵심 부분입니다. (예를 들어, $Q = \left\{q_0, q_1, q_2\right\}$일 때, $2^Q = \left\{\emptyset, \left\{q_0\right\}, \left\{q_1\right\}, \left\{q_2\right\}, \left\{q_0, q_1\right\}, \left\{q_0, q_2\right\}, \left\{q_1, q_2\right\}, \left\{q_0, q_1, q_2\right\}\right\}$ 입니다.) 
+* $\delta$: **전이 함수(transition function)** 이며, $Q \times (\Sigma \cup \left\lbrace\epsilon\right\rbrace) \rightarrow 2^Q$ 형태를 가집니다. 즉, 특정 상태에서 특정 입력 기호(또는 $\epsilon$)를 받았을 때, 전이할 수 있는 다음 상태들의 **집합**(멱집합 $2^Q$의 원소)을 반환합니다. 이것이 NFA의 비결정성을 나타내는 핵심 부분입니다. (예를 들어, $Q = \left\lbraceq_0, q_1, q_2\right\rbrace$일 때, $2^Q = \left\lbrace\emptyset, \left\lbraceq_0\right\rbrace, \left\lbraceq_1\right\rbrace, \left\lbraceq_2\right\rbrace, \left\lbraceq_0, q_1\right\rbrace, \left\lbraceq_0, q_2\right\rbrace, \left\lbraceq_1, q_2\right\rbrace, \left\lbraceq_0, q_1, q_2\right\rbrace\right\rbrace$ 입니다.) 
 * $q_0 \in Q$: **초기 상태(initial state)** 입니다. 
 * $F \subseteq Q$: **종료 상태(final state 또는 accepting state)** 들의 집합입니다. 이 상태들 중 하나에서 입력 문자열 처리가 끝나면 해당 문자열은 NFA에 의해 인식(수용)됩니다.
 
@@ -288,13 +288,13 @@ DFA 또한 5개의 구성요소로 이루어진 튜플 $M = (Q, \Sigma, \delta, 
 
 1.  **정규 표현식 $R = \epsilon$ (빈 문자열):** 
     새로운 초기 상태 $i$와 새로운 종료 상태 $f$를 만들고, $i$에서 $f$로 가는 $\epsilon$-전이를 추가합니다.
-    $L(N(R)) = \left\{\epsilon\right\}$
+    $L(N(R)) = \left\lbrace\epsilon\right\rbrace$
 
     ![$R=\epsilon$ 다이어그램](./images/Lec2_11_1.png)
 
 2.  **정규 표현식 $R = a$ (알파벳 $\Sigma$에 속하는 단일 기호):** 
     새로운 초기 상태 $i$와 새로운 종료 상태 $f$를 만들고, $i$에서 $f$로 가는 입력 기호 $a$에 대한 전이를 추가합니다.
-    $L(N(R)) = \left\{a\right\}$
+    $L(N(R)) = \left\lbracea\right\rbrace$
 
     ![$R=a$ 다이어그램](./images/Lec2_11_3.png)
 
@@ -351,7 +351,7 @@ NFA 상태들의 집합 $I$에 대한 $\epsilon\text{-Closure}(I)$는 $I$에 속
   이는 $T$가 반드시 $I$를 포함해야 하며, 이미 $T$에 있는 어떤 상태에서든 단일 $\epsilon$-이동으로 도달할 수 있는 모든 상태 또한 $T$의 일부여야 함을 의미합니다 (이는 $T$를 넘어서는 더 이상의 확장이 불가능함을 암시합니다). 
 
 * **$\epsilon\text{-Closure}(I)$ 계산 알고리즘 (최소 고정점):**
-  함수 $F(X) = I \cup \left\{s' \mid s \in X \text{ and } s' \in \delta_{NFA}(s, \epsilon)\right\}$를 정의할 수 있습니다. (이 함수는 집합 $I$와 집합 $X$의 상태들로부터 단일 $\epsilon$-단계로 도달 가능한 모든 상태들을 계산합니다.) 
+  함수 $F(X) = I \cup \left\lbraces' \mid s \in X \text{ and } s' \in \delta_{NFA}(s, \epsilon)\right\rbrace$를 정의할 수 있습니다. (이 함수는 집합 $I$와 집합 $X$의 상태들로부터 단일 $\epsilon$-단계로 도달 가능한 모든 상태들을 계산합니다.) 
       [이미지: Lec2_20.png ($F(X) = I \cup \bigcup_{s \in X} \delta(s, \epsilon)$)]
   그러면 $\epsilon\text{-closure}(I)$는 $T = F(T)$ 방정식을 만족하는 가장 작은 집합 $T$입니다. 이 해 $T$를 $F$의 **최소 고정점(least fixed point)**이라고 부릅니다. 
   이 최소 고정점은 아래 제시된 반복 알고리즘처럼 $F$를 반복적으로 적용하여 찾을 수 있습니다.
@@ -376,7 +376,7 @@ NFA 상태들의 집합 $I$에 대한 $\epsilon\text{-Closure}(I)$는 $I$에 속
 
 DFA의 각 상태 $d$는 NFA 상태들의 집합 $S$에 대해 $d = \epsilon\text{-closure}(S)$로 표현됩니다. 알고리즘은 다음과 같이 진행됩니다: 
 
-1.  **초기 상태 계산:** DFA의 초기 상태 $d_0$는 NFA의 초기 상태 $q_0$에 대한 $\epsilon\text{-closure}(\left\{q_0\right\})$ 입니다. $d_0$를 DFA 상태 집합 $Q_D$에 추가하고, 처리해야 할 상태 목록(예: 워크리스트 $W$)에 추가합니다. 
+1.  **초기 상태 계산:** DFA의 초기 상태 $d_0$는 NFA의 초기 상태 $q_0$에 대한 $\epsilon\text{-closure}(\left\lbraceq_0\right\rbrace)$ 입니다. $d_0$를 DFA 상태 집합 $Q_D$에 추가하고, 처리해야 할 상태 목록(예: 워크리스트 $W$)에 추가합니다. 
 2.  **반복:** 워크리스트 $W$가 비어있지 않은 동안 다음을 반복합니다: 
   a.  $W$에서 DFA 상태 $q_D$ (NFA 상태들의 집합임)를 하나 꺼냅니다.
   b.  입력 알파벳 $\Sigma$의 각 기호 $c$에 대해 다음을 수행합니다:
@@ -384,62 +384,62 @@ DFA의 각 상태 $d$는 NFA 상태들의 집합 $S$에 대해 $d = \epsilon\tex
       ii. $t_D = \epsilon\text{-closure}(\text{move}(q_D, c))$. 이 $t_D$가 $q_D$에서 $c$ 입력을 받았을 때 전이할 다음 DFA 상태입니다.
       iii. $\delta_{DFA}(q_D, c) = t_D$로 DFA의 전이 함수를 정의합니다.
       iv. 만약 $t_D$가 $Q_D$에 새롭게 추가된 상태라면, $t_D$를 $W$에도 추가합니다. 
-3.  **종료 상태 결정:** DFA 상태 $q_D \in Q_D$가 종료 상태가 되는 조건은, $q_D$에 포함된 NFA 상태들 중 적어도 하나가 NFA의 종료 상태($N_A$)인 경우입니다. 즉, $F_D = \left\{q_D \in Q_D \mid q_D \cap N_A \ne \emptyset\right\}$ 입니다. 
+3.  **종료 상태 결정:** DFA 상태 $q_D \in Q_D$가 종료 상태가 되는 조건은, $q_D$에 포함된 NFA 상태들 중 적어도 하나가 NFA의 종료 상태($N_A$)인 경우입니다. 즉, $F_D = \left\lbraceq_D \in Q_D \mid q_D \cap N_A \ne \emptyset\right\rbrace$ 입니다. 
 
     ![부분집합 구성 알고리즘 의사 코드](./images/Lec2_18.png)
 
 #### 부분집합 구성 실행 예제 (Running Example)
 
 이 예제는 부분집합 구성 알고리즘이 NFA를 DFA로 어떻게 변환하는지 보여줍니다. 여기서 사용되는 (명시적으로 그려지진 않았지만 가정된) NFA는 다음과 같은 특징을 가진다고 가정합니다:
-* 상태 집합 $Q_{NFA}$는 $\left\{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, \dots\right\}$를 포함합니다.
-* 상태 $\left\{0\right\}$은 이 NFA의 시작 상태입니다.
-* 입력 알파벳 $\Sigma = \left\{a, b, c\right\}$ 입니다.
+* 상태 집합 $Q_{NFA}$는 $\left\lbrace0, 1, 2, 3, 4, 5, 6, 7, 8, 9, \dots\right\rbrace$를 포함합니다.
+* 상태 $\left\lbrace0\right\rbrace$은 이 NFA의 시작 상태입니다.
+* 입력 알파벳 $\Sigma = \left\lbracea, b, c\right\rbrace$ 입니다.
 * NFA의 전이 함수 $\delta_{NFA}$와 $\epsilon$-전이는 아래 단계에서 보여지는 결과를 도출합니다.
 
 목표는 DFA $D = (Q_{DFA}, \Sigma, \delta_{DFA}, d_0, F_{DFA})$를 구성하는 것입니다.
 
 1.  **초기 DFA 상태 $d_0$:** 
-  DFA의 초기 상태 $d_0$는 NFA 시작 상태의 $\epsilon\text{-closure}$입니다. NFA 시작 상태를 $q_0 = \{0\}$이라 하고, 이 상태에서 다른 상태로 가는 $\epsilon$-전이가 없어 확장되지 않는다고 가정하면:
-  $d_0 = \epsilon\text{-closure}(\left\{0\right\}) = \left\{0\right\}$ <br>
+  DFA의 초기 상태 $d_0$는 NFA 시작 상태의 $\epsilon\text{-closure}$입니다. NFA 시작 상태를 $q_0 = \lbrace0\rbrace$이라 하고, 이 상태에서 다른 상태로 가는 $\epsilon$-전이가 없어 확장되지 않는다고 가정하면:
+  $d_0 = \epsilon\text{-closure}(\left\lbrace0\right\rbrace) = \left\lbrace0\right\rbrace$ <br>
     ![start -> {0}](./images/Lec2_15.png)
 
-2.  **$d_0$ (즉, $S = \left\{0\right\}$)로부터의 전이 계산:** 
-  $d_0 = \left\{0\right\}$과 각 입력 $x \in \Sigma$에 대해 $\delta_{DFA}(d_0, x) = \epsilon\text{-closure}(\text{move}(d_0, x))$를 계산합니다.
+2.  **$d_0$ (즉, $S = \left\lbrace0\right\rbrace$)로부터의 전이 계산:** 
+  $d_0 = \left\lbrace0\right\rbrace$과 각 입력 $x \in \Sigma$에 대해 $\delta_{DFA}(d_0, x) = \epsilon\text{-closure}(\text{move}(d_0, x))$를 계산합니다.
   $\text{move}(S', \text{input}) = \bigcup_{s \in S'} \delta_{NFA}(s, \text{input})$입니다.
 
     일반적인 계산 단계는 다음 이미지의 수식으로 표현됩니다: <br>
     ![$\epsilon\text{-closure}(\bigcup_{s \in S} \delta(s, a))$](./images/Lec2_16_1.png)
 
     * 입력 'a':
-        $S = \left\{0\right\}$이므로 $\text{move}(\left\{0\right\}, a) = \bigcup_{s \in \left\{0\right\}} \delta_{NFA}(s, a)$를 계산합니다.
-        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\{0\right\}} \delta_{NFA}(s, a)) = \left\{1, 2, 3, 4, 6, 9\right\}$입니다.
-        이 새로운 DFA 상태를 $d_1 = \left\{1, 2, 3, 4, 6, 9\right\}$라고 하면, $\delta_{DFA}(\left\{0\right\}, a) = d_1$입니다.
+        $S = \left\lbrace0\right\rbrace$이므로 $\text{move}(\left\lbrace0\right\rbrace, a) = \bigcup_{s \in \left\lbrace0\right\rbrace} \delta_{NFA}(s, a)$를 계산합니다.
+        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\lbrace0\right\rbrace} \delta_{NFA}(s, a)) = \left\lbrace1, 2, 3, 4, 6, 9\right\rbrace$입니다.
+        이 새로운 DFA 상태를 $d_1 = \left\lbrace1, 2, 3, 4, 6, 9\right\rbrace$라고 하면, $\delta_{DFA}(\left\lbrace0\right\rbrace, a) = d_1$입니다.
 
     * 입력 'b':
-        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\{0\right\}} \delta_{NFA}(s, b)) = \emptyset$입니다.
-        이는 $\text{move}(\left\{0\right\}, b)$가 $\emptyset$이었음을 의미합니다.
-        따라서 $\delta_{DFA}(\left\{0\right\}, b) = \emptyset$입니다. (이는 DFA에서 비수용 "데드 상태"로의 전이를 의미하거나, 전이가 정의되지 않았음을 나타낼 수 있습니다.)
+        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\lbrace0\right\rbrace} \delta_{NFA}(s, b)) = \emptyset$입니다.
+        이는 $\text{move}(\left\lbrace0\right\rbrace, b)$가 $\emptyset$이었음을 의미합니다.
+        따라서 $\delta_{DFA}(\left\lbrace0\right\rbrace, b) = \emptyset$입니다. (이는 DFA에서 비수용 "데드 상태"로의 전이를 의미하거나, 전이가 정의되지 않았음을 나타낼 수 있습니다.)
 
     * 입력 'c':
-        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\{0\right\}} \delta_{NFA}(s, c)) = \emptyset$입니다.
-        따라서 $\delta_{DFA}(\left\{0\right\}, c) = \emptyset$입니다.
+        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\lbrace0\right\rbrace} \delta_{NFA}(s, c)) = \emptyset$입니다.
+        따라서 $\delta_{DFA}(\left\lbrace0\right\rbrace, c) = \emptyset$입니다.
 
         ![{0} --a--> {1,2,3,4,6,9}](./images/Lec2_16_2.png)
 
-3.  **새로운 DFA 상태(예: $d_1 = \left\{1, 2, 3, 4, 6, 9\right\}$)로부터의 전이 계산:** 
-  새로운 (아직 처리되지 않은) DFA 상태 $d_1 = \left\{1, 2, 3, 4, 6, 9\right\}$에 대해 각 입력 $x \in \Sigma$에 대한 전이를 계산합니다.
+3.  **새로운 DFA 상태(예: $d_1 = \left\lbrace1, 2, 3, 4, 6, 9\right\rbrace$)로부터의 전이 계산:** 
+  새로운 (아직 처리되지 않은) DFA 상태 $d_1 = \left\lbrace1, 2, 3, 4, 6, 9\right\rbrace$에 대해 각 입력 $x \in \Sigma$에 대한 전이를 계산합니다.
 
     * $d_1$에서 입력 'a':
-        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\{1,2,3,4,6,9\right\}} \delta_{NFA}(s, a)) = \emptyset$.
+        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\lbrace1,2,3,4,6,9\right\rbrace} \delta_{NFA}(s, a)) = \emptyset$.
         따라서 $\delta_{DFA}(d_1, a) = \emptyset$.
 
     * $d_1$에서 입력 'b':
-        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\{1,2,3,4,6,9\right\}} \delta_{NFA}(s, b)) = \left\{3, 4, 5, 6, 8, 9\right\}$.
-        이 새로운 DFA 상태를 $d_2 = \left\{3, 4, 5, 6, 8, 9\right\}$라고 하면, $\delta_{DFA}(d_1, b) = d_2$.
+        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\lbrace1,2,3,4,6,9\right\rbrace} \delta_{NFA}(s, b)) = \left\lbrace3, 4, 5, 6, 8, 9\right\rbrace$.
+        이 새로운 DFA 상태를 $d_2 = \left\lbrace3, 4, 5, 6, 8, 9\right\rbrace$라고 하면, $\delta_{DFA}(d_1, b) = d_2$.
 
     * $d_1$에서 입력 'c':
-        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\{1,2,3,4,6,9\right\}} \delta_{NFA}(s, c)) = \left\{3, 4, 6, 7, 8, 9\right\}$.
-        이 새로운 DFA 상태를 $d_3 = \left\{3, 4, 6, 7, 8, 9\right\}$라고 하면, $\delta_{DFA}(d_1, c) = d_3$.
+        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\lbrace1,2,3,4,6,9\right\rbrace} \delta_{NFA}(s, c)) = \left\lbrace3, 4, 6, 7, 8, 9\right\rbrace$.
+        이 새로운 DFA 상태를 $d_3 = \left\lbrace3, 4, 6, 7, 8, 9\right\rbrace$라고 하면, $\delta_{DFA}(d_1, c) = d_3$.
 
         ![{1,2,3,4,6,9}에서 b, c로의 전이가 있는 다이어그램](./images/Lec2_17.png)
 
