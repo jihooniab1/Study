@@ -20,12 +20,12 @@ https://prl.korea.ac.kr/courses/cose312/2025/
 
 ![Interpreter](./images/Lec1_1.png)
 
-컴파일러가 수행하는 가장 중요한 원칙 중 하나는 소스 프로그램의 의미(semantics)를 보존하는 것입니다. 이는 번역 과정을 거치더라도 원래 프로그램이 가지고 있던 기능이나 실행 결과가 변하지 않아야 함을 의미합니다.
+컴파일러는 복잡한 번역 과정을 효율적으로 수행하기 위해 여러 단계(phase)로 나뉘어 구성되는 것이 일반적입니다. 각 단계는 이전 단계의 출력을 입력으로 받아 특정 작업을 수행하고, 그 결과를 다음 단계로 전달합니다. 크게 프론트엔드(Front End), 미들엔드(Middle End), 그리고 백엔드(Back End)로 구분할 수 있습니다.
 
 ![Semantics](./images/Lec1_2.png)
 
 ## 컴파일러의 구조 (Structure of Compilers)
-컴파일러는 복잡한 번역 과정을 효율적으로 수행하기 위해 여러 단계(phase)로 나뉘어 구성되는 것이 일반적입니다. 각 단계는 이전 단계의 출력을 입력으로 받아 특정 작업을 수행하고, 그 결과를 다음 단계로 전달합니다. 크게 프론트엔드(Front End), 미들엔드(Middle End), 그리고 백엔드(Back End)로 구분할 수 있습니다.
+프론트엔드는 소스 프로그램을 분석하여 그 구조와 의미를 파악하고, 이를 후속 단계를 위한 내부 표현 방식인 **중간 표현(Intermediate Representation, IR)** 으로 변환하는 역할을 담당합니다. 입력으로는 프로그래머가 작성한 문자열 형태의 소스 코드가 주어집니다.
 
 ![Structures](./images/Lec1_3.png)
 
@@ -33,8 +33,6 @@ https://prl.korea.ac.kr/courses/cose312/2025/
 프론트엔드는 소스 프로그램을 분석하여 그 구조와 의미를 파악하고, 이를 후속 단계를 위한 내부 표현 방식인 **중간 표현(Intermediate Representation, IR)** 으로 변환하는 역할을 담당합니다. 입력으로는 프로그래머가 작성한 문자열 형태의 소스 코드가 주어집니다.
 
 IR은 컴파일러 내부에서 프로그램을 나타내는 방식으로, 다양한 형태가 존재합니다. 가장 잘 알려진 예로는 프로그램의 문법적 구조를 나무 형태로 표현한 **추상 구문 트리(Abstract Syntax Tree, AST)** 가 있으며, 이는 2차원적인 구조로 이해할 수 있습니다. 또 다른 형태로는 기계어 명령어와 유사하게 각 명령어가 간단한 연산들로 구성된 **3-주소 코드(Three-Address Code, TAC)** 처럼 보다 선형적인 표현 방식도 널리 사용됩니다.
-
-프론트엔드는 주로 다음과 같은 세부 단계들로 이루어집니다.
 
 ### 1.1. 어휘 분석기 (Lexical Analyzer)
 어휘 분석기는 소스 코드 문자 스트림(Character Stream)을 읽어들여 문법적으로 의미 있는 최소 단위인 **토큰(Token)** 들의 스트림(Token Stream)으로 분해합니다. 토큰은 일반적으로 **타입(Type)** 과 필요한 경우 그 **값(Value)** 을 쌍으로 가집니다.
@@ -91,3 +89,358 @@ IR을 사용하는 주된 이유는 다양한 소스 언어와 목표 아키텍�
 프론트엔드: 소스 프로그램의 구문(syntax)과 의미(semantics)를 이해하여 IR을 생성합니다.
 미들엔드 (최적화기): IR을 분석하고 변환하여 프로그램의 효율성을 향상시킵니다.
 백엔드: 최적화된 IR로부터 목표 기계에서 실행 가능한 프로그램을 생성합니다.
+
+# Lecture 2
+
+컴파일러의 첫 번째 단계인 어휘 분석(Lexical Analysis)은 소스 프로그램을 문자(character)의 스트림으로 받아, 이를 문법적으로 의미 있는 최소 단위인 **토큰(token)** 의 스트림으로 변환하는 과정입니다. 어휘 분석기는 흔히 **렉서(lexer)** 또는 **스캐너(scanner)** 라고도 불립니다.
+
+어휘 분석기는 미리 정의된 **패턴(pattern)** 들을 사용하여 입력 문자열에서 토큰을 식별합니다. 예를 들어, 프로그래밍 언어에서 식별자(identifier), 키워드(keyword), 숫자(number), 연산자(operator) 등은 각각 고유한 패턴을 가집니다. 어휘 분석기는 이러한 패턴을 인식하고, 공백(whitespace), 탭, 줄 바꿈 문자나 구두점(punctuation), 또는 다른 토큰의 시작과 같은 **구분자(delimiter)** 를 기준으로 문자열을 분리하여 토큰을 추출합니다.
+
+예를 들어, 아래와 같은 C 언어 코드가 주어졌다고 가정해 봅시다.
+
+```c
+float match0 (char *s) /* find a zero */
+{
+    if (!strncmp(s, "0.0", 3))
+        return 0.0;
+}
+```
+
+어휘 분석기는 이 코드를 다음과 같은 토큰의 연속으로 변환합니다:
+
+![lex](./images/Lec2_1.png)
+
+여기서 `ID(match0)`는 `match0`이라는 값을 가진 식별자(Identifier) 타입의 토큰을, `NUM(3)`은 값 3을 가진 숫자(Number) 타입의 토큰을 나타냅니다. `EOF`는 파일의 끝(End Of File)을 나타내는 특수한 토큰입니다.
+
+어휘 분석 과정을 이해하고 구현하기 위해서는 다음 세 가지 핵심 요소를 알아야 합니다:
+
+- 명세 (Specification): 토큰과 같은 어휘적 패턴을 어떻게 정확하게 정의하고 명시할 것인가? (이를 위해 주로 **정규 표현식(Regular Expression)** 이 사용됩니다.)
+- 인식 (Recognition): 명시된 어휘 패턴을 입력 문자열에서 어떻게 효율적으로 인식할 것인가? (이를 위해 주로 **결정적 유한 오토마타(Deterministic Finite Automaton, DFA)** 가 사용됩니다.)
+- 자동화 (Automation): 주어진 명세(정규 표현식)로부터 패턴 인식기(DFA)를 어떻게 자동으로 생성할 것인가? (이를 위해 **톰슨 구성법(Thompson's construction)** 으로 정규 표현식에서 NFA를 만들고, **부분집합 구성법(subset construction)** 으로 NFA에서 DFA를 만듭니다.)
+
+## 1. 명세 (Specification): 어휘 패턴의 정의
+어휘 분석의 가장 기본적인 출발점은 토큰으로 인식될 문자열 패턴을 정의하는 것입니다. 이를 위해 형식 언어 이론의 개념들이 사용됩니다.
+
+### 1.1. 알파벳 (Alphabet)
+알파벳(alphabet) $\Sigma$는 문자(character) 또는 기호(symbol)들의 유한하고 비어있지 않은 집합(finite, non-empty set)을 의미합니다. 예를 들어, C 언어의 알파벳은 ASCII 문자 집합이 될 수 있고, 이진수를 다룬다면 알파벳은 $\left\{0, 1\right\}$이 됩니다.
+
+### 1.2. 문자열 (Strings)
+문자열(string)은 특정 알파벳 $\Sigma$에 속한 기호들을 유한하게 나열한 순서(finite sequence)입니다.
+
+- 길이가 0인 문자열, 즉 아무 기호도 포함하지 않는 문자열을 **빈 문자열(empty string)** 이라고 하며, 보통 $\epsilon$ (입실론)으로 표기합니다.
+- 두 문자열 $w$와 $v$를 이어 붙이는 것을 **연결(concatenation)** 이라고 하며 $wv$로 나타냅니다.
+- 문자열 $w$의 기호 순서를 거꾸로 뒤집은 것을 $w$의 **역순(reverse)** 이라 하고 $w^R$로 씁니다.
+- 문자열 $w$에 포함된 기호의 개수를 $w$의 **길이(length)** 라고 하며 $|w|$로 표기합니다. 빈 문자열의 길이는 $|\epsilon|=0$이며, 어떤 문자열 $v$에 기호 하나 $a$를 연결한 $va$의 길이는 $|v|+1$입니다 (여기서 $a$는 단일 기호).
+- 문자열 $w$가 $vu$의 형태로 표현될 때, $v$를 $w$의 접두사(prefix), $u$를 $w$의 **접미사(suffix)** 라고 합니다.
+- $\Sigma^k$는 알파벳 $\Sigma$에 속한 기호들로 만들 수 있는 길이가 정확히 $k$인 모든 문자열의 집합을 나타냅니다.
+- $\Sigma^*$는 알파벳 $\Sigma$로 만들 수 있는 모든 길이의 문자열 집합을 의미하며, 빈 문자열 $\epsilon$을 포함합니다 ($\Sigma^* = \Sigma^0 \cup \Sigma^1 \cup \Sigma^2 \cup \dots = \bigcup_{i \in \mathbb{N}} \Sigma^i$).
+- $\Sigma^+$는 $\Sigma^*$에서 빈 문자열 $\epsilon$을 제외한, 즉 길이가 1 이상인 모든 문자열의 집합입니다 ($\Sigma^+ = \Sigma^1 \cup \Sigma^2 \cup \dots = \Sigma^* \setminus \{\epsilon\}$).
+
+### 1.3. 언어 (Languages)
+형식 언어 이론에서 언어(language) $L$은 특정 알파벳 $\Sigma$로부터 생성될 수 있는 모든 문자열의 집합인 $\Sigma^*$의 부분집합($L \subseteq \Sigma^*$)으로 정의됩니다. 즉, 어떤 규칙이나 조건을 만족하는 문자열들의 모임입니다.
+
+언어들 사이에는 다음과 같은 연산들이 정의될 수 있습니다:
+
+- 합집합 (Union): $L_1 \cup L_2 = \left\{w \mid w \in L_1 \text{ or } w \in L_2\right\}$
+- 교집합 (Intersection): $L_1 \cap L_2 = \left\{w \mid w \in L_1 \text{ and } w \in L_2\right\}$
+- 차집합 (Difference): $L_1 - L_2 = \left\{w \mid w \in L_1 \text{ and } w \notin L_2\right\}$
+- 역순 (Reverse): $L^R = \left\{w^R \mid w \in L\right\}$
+- 여집합 (Complement): $\overline{L} = \Sigma^* - L$
+- 연결 (Concatenation): $L_1 L_2 = \left\{xy \mid x \in L_1 \text{ and } y \in L_2\right\}$ (언어 $L_1$의 문자열과 언어 $L_2$의 문자열을 순서대로 연결하여 만들 수 있는 모든 문자열의 집합)
+- 거듭제곱 (Power): $L^n$은 언어 $L$을 $n$번 연결한 것입니다.
+$L^0 = {\epsilon}$ (정의에 따라 빈 문자열만을 원소로 가짐)
+$L^n = L L^{n-1}$ (또는 $L^{n-1}L$) ($n \ge 1$)
+- 스타 클로저 (Star-closure 또는 Kleene closure): $L^*$는 언어 $L$의 문자열들을 0번 이상 연결하여 만들 수 있는 모든 문자열의 집합입니다. 즉, $L^* = L^0 \cup L^1 \cup L^2 \cup \dots = \bigcup_{i \ge 0} L^i$.
+- 양성 클로저 (Positive closure): $L^+$는 언어 $L$의 문자열들을 1번 이상 연결하여 만들 수 있는 모든 문자열의 집합입니다. 즉, $L^+ = L^1 \cup L^2 \cup L^3 \cup \dots = \bigcup_{i \ge 1} L^i$. 이는 $L^* = L^+ \cup \left\{\epsilon\right\}$ (단, $L$이 $\epsilon$을 포함하지 않을 경우) 또는 $L^+ = L L^*$ 관계를 가집니다.
+
+### 1.4. 정규 표현식 (Regular Expressions)
+정규 표현식(Regular Expression, RE)은 특정 규칙을 가진 문자열의 집합, 즉 **정규 언어(Regular Language)** 를 간결하게 명시하기 위해 사용되는 **메타 언어(meta-language)** 입니다. 어휘 분석에서는 다양한 토큰의 패턴(예: 식별자, 숫자, 특정 키워드)을 정의하는 데 주로 활용됩니다. 정규 표현식 자체도 하나의 언어이므로, 고유한 구문(syntax)과 의미(semantics)를 가집니다. 
+
+#### 정규 표현식의 구문 (Syntax)
+정규 표현식 $R$은 더 단순한 정규 표현식들을 조합하여 재귀적으로 정의됩니다. 일반적인 정규 표현식의 구문은 다음과 같은 규칙으로 정의될 수 있습니다 (여기서 $R, R_1, R_2$는 정규 표현식을 나타냅니다):
+
+* **기본 심볼 (Base Symbols):**
+    * $\emptyset$: 빈 집합(empty set)을 나타내는 정규 표현식. 어떤 문자열도 포함하지 않는 언어를 의미합니다.
+    * $\epsilon$: 빈 문자열(empty string) $\epsilon$만을 포함하는 언어를 나타내는 정규 표현식입니다.
+    * $a$: 알파벳 $\Sigma$에 속하는 임의의 단일 기호 $a$에 대해, $a$는 문자열 $a$만을 포함하는 언어를 나타내는 정규 표현식입니다.
+* **연산 (Operations):**
+    * $R_1 | R_2$ (선택, Alternation): $R_1$이 나타내는 언어와 $R_2$가 나타내는 언어의 **합집합** 을 의미합니다. 즉, $R_1$에 속하거나 $R_2$에 속하는 문자열들을 나타냅니다. (때로는 $R_1 + R_2$로 표기하기도 합니다.)
+    * $R_1 R_2$ (연결, Concatenation): $R_1$이 나타내는 언어의 문자열 뒤에 $R_2$가 나타내는 언어의 문자열을 이어 붙여 만들어지는 모든 문자열의 집합을 의미합니다. (때로는 $R_1 \cdot R_2$로 표기하기도 합니다.)
+    * $R^*$ (스타 클로저, Star Closure 또는 Kleene Closure): $R$이 나타내는 언어의 문자열을 0번 이상 반복하여 연결한 모든 문자열의 집합을 의미합니다. (예: $a^*$는 $\epsilon, a, aa, aaa, \dots$를 포함합니다.)
+* **괄호 (Parentheses):**
+    * $(R)$: 정규 표현식 $R$과 동일한 언어를 나타내며, 연산의 우선순위를 명확히 하거나 그룹핑하는 데 사용됩니다.
+
+정규 표현식으로 기술된 문자열의 집합은 **정규 언어(regular language)** 를 형성하며, 이는 유한 오토마타(finite automaton)에 의해 인식될 수 있는 형식 언어의 한 종류입니다. 
+
+#### 정규 표현식의 의미 (Semantics)
+
+정규 표현식 $R$의 의미는 $R$이 나타내는 언어, 즉 문자열의 집합 $L(R)$로 정의됩니다. $L(R)$은 항상 $\Sigma^*$의 부분집합입니다. 
+
+* $L(\emptyset) = \emptyset$ (빈 집합) 
+* $L(\epsilon) = \left\{\epsilon\right\}$ (빈 문자열만을 원소로 갖는 집합) 
+* 알파벳 기호 $a \in \Sigma$에 대해, $L(a) = \left\{a\right\}$ (문자열 $a$만을 원소로 갖는 집합) 
+* $L(R_1 | R_2) = L(R_1) \cup L(R_2)$ (두 언어의 합집합) 
+* $L(R_1 R_2) = L(R_1)L(R_2)$ (두 언어의 연결) 
+* $L(R^*) = (L(R))^*$ (언어 $L(R)$의 스타 클로저) 
+* $L((R)) = L(R)$ (괄호는 언어의 의미를 바꾸지 않음) 
+
+### 1.5. 정규 정의 (Regular Definitions)
+모든 명세를 기본적인 정규 표현식만으로 표현하는 것은 때때로 매우 번거롭고 가독성이 떨어질 수 있습니다. **정규 정의(Regular Definition)** 는 이러한 불편함을 해소하기 위해 정규 표현식에 이름을 부여하고, 이후 다른 정규 표현식에서 그 이름을 참조하여 사용할 수 있도록 하는 방법입니다. 
+
+형식적으로 정규 정의는 다음과 같은 형태의 정의들의 나열입니다: <br> 
+$d_1 \rightarrow r_1$ <br>
+$d_2 \rightarrow r_2$ <br>
+$\dots$ <br>
+$d_n \rightarrow r_n$ <br>
+
+여기서 각 $d_i$는 새로운 이름(토큰 이름 등)이며, 알파벳 $\Sigma$에는 속하지 않는 기호여야 합니다 ($d_i \notin \Sigma$). 각 $r_i$는 알파벳 $\Sigma$와 이전에 정의된 이름들 $\left\{d_1, d_2, \dots, d_{i-1}\right\}$을 사용하여 구성된 정규 표현식입니다. 
+
+예를 들어, 파스칼(Pascal) 언어의 식별자를 정의한다면 다음과 같이 할 수 있습니다: <br>
+`letter_` $\rightarrow A | B | \dots | Z | a | b | \dots | z | \_$ (밑줄 문자도 허용하는 경우) <br>
+`digit` $\rightarrow 0 | 1 | \dots | 9$ <br>
+`id` $\rightarrow$ `letter_` (`letter_` | `digit`)$^*$
+
+여기서 `letter_`와 `digit`은 보조적인 이름이며, `id`가 최종적으로 식별자 토큰을 정의하는 이름이 됩니다.
+
+### 1.6. 정규 표현식의 확장 (Extensions of Regular Expressions)
+가독성과 편의성을 위해 기본적인 정규 표현식 외에 다음과 같은 확장된 표기법들이 자주 사용됩니다: 
+
+* **양성 클로저 (Positive Closure) $R^+$**: $R$이 한 번 이상 반복되는 것을 의미합니다. 즉, $L(R^+) = L(R)^+ = L(R R^*) = L(R^* R)$ 입니다. 
+* **선택적 발생 (Zero or One Instance) $R?$**: $R$이 0번 또는 1번 발생하는 것을 의미합니다. 즉, $L(R?) = L(R) \cup \left\{\epsilon\right\}$ 입니다. 
+* **문자 클래스 (Character Classes) `[a_1a_2...a_n]`**: $a_1 | a_2 | \dots | a_n$을 간략하게 표현한 것입니다. 예를 들어 `[abc]`는 `a|b|c`와 같습니다. 
+* **범위 지정 문자 클래스 `[a_1-a_n]`**: 연속된 기호들을 나타냅니다. 예를 들어 `[a-z]`는 `a|b|\dots|z`와 같으며, 보통 알파벳 소문자 전체를 의미합니다. `[0-9]`는 숫자 하나를 의미합니다.
+
+이러한 확장 표기법들은 기본적인 정규 표현식 연산들(선택, 연결, 스타 클로저)을 사용하여 모두 동등한 기본 정규 표현식으로 변환될 수 있습니다. 예를 들어, $R^+ = R R^*$ 이고, $R? = R | \epsilon$ 입니다.
+
+## 2. 문자열 인식과 유한 오토마타 (String Recognition by Finite Automata) 💻
+
+정규 표현식으로 토큰의 패턴을 명세했다면, 다음 단계는 주어진 문자열이 해당 패턴에 속하는지, 즉 특정 정규 언어에 속하는지를 **인식(recognize)**하는 메커니즘을 구현하는 것입니다. 이를 위해 **유한 오토마타(Finite Automata, FA)**가 사용됩니다. 유한 오토마타는 정규 언어를 인식할 수 있는 가장 간단한 계산 모델입니다.
+
+유한 오토마타에는 크게 두 가지 종류가 있습니다:
+
+* **비결정적 유한 오토마타 (Nondeterministic Finite Automaton, NFA)**
+* **결정적 유한 오토마타 (Deterministic Finite Automaton, DFA)**
+
+어휘 분석기를 실제로 구현할 때는 주로 DFA를 사용하지만, 정규 표현식에서 오토마타를 구축하는 과정은 NFA를 중간 단계로 거치는 것이 더 쉽고 직관적입니다.
+
+### 2.1. 비결정적 유한 오토마타 (NFA)
+
+**NFA(Nondeterministic Finite Automaton)** 는 입력 문자열에 대해 다음 상태가 유일하게 결정되지 않을 수 있는 유한 오토마타입니다. 즉, 특정 상태에서 같은 입력 기호에 대해 여러 다음 상태로 전이(transition)할 수 있거나, 입력 기호 없이도 ($\epsilon$-전이) 상태를 변경할 수 있습니다. NFA가 어떤 문자열을 받아들인다는 것은 그 문자열을 처리하는 여러 가능한 경로 중 하나라도 최종적으로 **종료 상태(accepting state 또는 final state)** 에 도달하는 경로가 존재한다는 의미입니다. 
+
+어휘 분석기를 구축하는 과정은 보통 다음과 같습니다:
+1.  정규 표현식으로 정의된 각 토큰 패턴을 NFA로 변환합니다 (예: 톰슨 구성법 사용).
+2.  생성된 NFA들을 (필요하다면) 하나로 결합합니다.
+3.  결합된 NFA를 이와 동등한 DFA로 변환합니다 (예: 부분집합 구성법 사용).
+이 최종 DFA가 어휘 분석기에서 토큰을 인식하는 데 사용됩니다. 
+
+#### NFA의 정의
+
+NFA는 5개의 구성요소로 이루어진 튜플(tuple) $M = (Q, \Sigma, \delta, q_0, F)$로 정의됩니다: 
+
+* $Q$: 유한한 **상태(state)** 들의 집합입니다.
+* $\Sigma$: 유한한 **입력 기호(input symbol)** 들의 집합, 즉 **입력 알파벳(input alphabet)** 입니다. $\epsilon$ (빈 문자열)은 입력 알파벳에 포함되지 않는다고 가정합니다 ($\epsilon \notin \Sigma$). 
+* $\delta$: **전이 함수(transition function)** 이며, $Q \times (\Sigma \cup \left\{\epsilon\right\}) \rightarrow 2^Q$ 형태를 가집니다. 즉, 특정 상태에서 특정 입력 기호(또는 $\epsilon$)를 받았을 때, 전이할 수 있는 다음 상태들의 **집합**(멱집합 $2^Q$의 원소)을 반환합니다. 이것이 NFA의 비결정성을 나타내는 핵심 부분입니다. (예를 들어, $Q = \left\{q_0, q_1, q_2\right\}$일 때, $2^Q = \left\{\emptyset, \left\{q_0\right\}, \left\{q_1\right\}, \left\{q_2\right\}, \left\{q_0, q_1\right\}, \left\{q_0, q_2\right\}, \left\{q_1, q_2\right\}, \left\{q_0, q_1, q_2\right\}\right\}$ 입니다.) 
+* $q_0 \in Q$: **초기 상태(initial state)** 입니다. 
+* $F \subseteq Q$: **종료 상태(final state 또는 accepting state)** 들의 집합입니다. 이 상태들 중 하나에서 입력 문자열 처리가 끝나면 해당 문자열은 NFA에 의해 인식(수용)됩니다.
+
+![NFA 정의 요약](./images/Lec2_8.png)
+
+### 2.2. 결정적 유한 오토마타 (DFA)
+**DFA(Deterministic Finite Automaton)** 는 NFA의 특별한 경우로, 다음과 같은 두 가지 주요 특징을 가집니다: 
+
+1.  $\epsilon$-전이가 없습니다. 즉, 입력 기호 없이 상태를 변경할 수 없습니다.
+2.  각 상태와 각 입력 기호에 대해, 다음으로 전이할 상태가 **유일하게 하나로 결정**됩니다.
+
+이러한 결정성 때문에 DFA는 문자열을 인식하는 알고리즘을 구현하기에 더 직접적이고 효율적입니다. 어휘 분석기의 실제 실행 엔진은 주로 DFA 형태로 구현됩니다.
+
+#### DFA의 정의
+
+DFA 또한 5개의 구성요소로 이루어진 튜플 $M = (Q, \Sigma, \delta, q_0, F)$로 정의됩니다: 
+
+* $Q$: 유한한 **상태(state)** 들의 집합입니다.
+* $\Sigma$: 유한한 **입력 기호(input symbol)** 들의 집합 (입력 알파벳)입니다.
+* $\delta$: **전이 함수(transition function)** 이며, $Q \times \Sigma \rightarrow Q$ 형태를 가집니다. 즉, 특정 상태에서 특정 입력 기호를 받았을 때, 다음 상태가 **단 하나** 로 결정됩니다. (NFA와 달리 $2^Q$가 아닌 $Q$로 매핑됩니다.) 이 함수는 모든 상태와 모든 입력 기호의 쌍에 대해 정의된 전체 함수(total function)여야 합니다. (만약 특정 입력에 대한 전이가 없다면, 보통 오류 상태 또는 "죽은 상태(dead state)"로 가는 전이가 있다고 가정합니다.)
+* $q_0 \in Q$: **초기 상태(initial state)** 입니다. 
+* $F \subseteq Q$: **종료 상태(final state)** 들의 집합입니다. 
+
+## 3. 자동화 (Automation): 정규 표현식에서 DFA까지 ⚙️
+
+지금까지 정규 표현식으로 어휘 패턴을 명세하고, 유한 오토마타(NFA, DFA)로 이를 인식하는 방법을 살펴보았습니다. 실제 어휘 분석기를 개발할 때는 이러한 변환 과정을 자동화하는 도구를 사용합니다. 이 자동화 과정은 일반적으로 다음의 두 주요 단계를 거칩니다: 
+
+1.  **정규 표현식(RE) $\rightarrow$ NFA 변환**: 각 정규 표현식을 그와 동등한 NFA로 변환합니다. (예: **톰슨 구성법 (Thompson's Construction)**)
+2.  **NFA $\rightarrow$ DFA 변환**: 생성된 NFA(또는 여러 NFA를 결합한 NFA)를 이와 동등한 DFA로 변환합니다. (예: **부분집합 구성법 (Subset Construction)**)
+
+### 3.1 톰슨 구성법 (Thompson's Construction): RE $\rightarrow$ NFA
+
+톰슨 구성법은 정규 표현식의 구조에 따라 재귀적으로 NFA를 구축하는 알고리즘입니다. 이 방법의 핵심 원리는 다음과 같습니다: 
+
+* **합성성(Compositionality)**: 복잡한 정규 표현식에 대한 NFA는 그보다 단순한 부분 정규 표현식들에 대한 NFA들을 결합하여 만듭니다. 
+* **불변 조건(Invariants)**: 구성되는 각 NFA 조각(fragment)은 다음과 같은 불변 조건을 만족하도록 설계됩니다: 
+    * **단 하나의 종료 상태(accepting state)**만을 가집니다. 
+    * 초기 상태(initial state)로 들어오는 전이(arc)가 없습니다. 
+    * 종료 상태에서 나가는 전이가 없습니다. 
+
+이러한 불변 조건 덕분에 작은 NFA 조각들을 새로운 초기 상태와 종료 상태를 추가하고 $\epsilon$-전이를 이용하여 쉽게 결합할 수 있습니다.
+
+#### 톰슨 구성법의 기본 단계 (Base Cases and Inductive Steps)
+
+톰슨 구성법은 정규 표현식의 기본 요소와 연산에 대해 NFA를 구성하는 방법을 정의합니다.
+
+1.  **정규 표현식 $R = \epsilon$ (빈 문자열):** 
+    새로운 초기 상태 $i$와 새로운 종료 상태 $f$를 만들고, $i$에서 $f$로 가는 $\epsilon$-전이를 추가합니다.
+    $L(N(R)) = \left\{\epsilon\right\}$
+
+    ![$R=\epsilon$ 다이어그램](./images/Lec2_11_1.png)
+
+2.  **정규 표현식 $R = a$ (알파벳 $\Sigma$에 속하는 단일 기호):** 
+    새로운 초기 상태 $i$와 새로운 종료 상태 $f$를 만들고, $i$에서 $f$로 가는 입력 기호 $a$에 대한 전이를 추가합니다.
+    $L(N(R)) = \left\{a\right\}$
+
+    ![$R=a$ 다이어그램](./images/Lec2_11_3.png)
+
+3.  **정규 표현식 $R = R_1 | R_2$ (선택, Alternation):** 
+    $R_1$에 대한 NFA $N(R_1)$과 $R_2$에 대한 NFA $N(R_2)$를 먼저 구성합니다.
+    새로운 초기 상태 $i$와 새로운 종료 상태 $f$를 만듭니다.
+    * $i$에서 $N(R_1)$의 초기 상태로 $\epsilon$-전이를 추가합니다.
+    * $i$에서 $N(R_2)$의 초기 상태로 $\epsilon$-전이를 추가합니다.
+    * $N(R_1)$의 종료 상태에서 $f$로 $\epsilon$-전이를 추가합니다.
+    * $N(R_2)$의 종료 상태에서 $f$로 $\epsilon$-전이를 추가합니다.
+    $L(N(R)) = L(N(R_1)) \cup L(N(R_2))$
+
+    ![$R=R_1|R_2$ 다이어그램](./images/Lec2_12.png)
+
+4.  **정규 표현식 $R = R_1 R_2$ (연결, Concatenation):** 
+    $R_1$에 대한 NFA $N(R_1)$과 $R_2$에 대한 NFA $N(R_2)$를 먼저 구성합니다.
+    $N(R_1)$의 초기 상태가 $N(R)$의 초기 상태가 됩니다.
+    $N(R_1)$의 종료 상태를 $N(R_2)$의 초기 상태와 $\epsilon$-전이로 (또는 직접 상태를 합쳐서) 연결합니다.
+    $N(R_2)$의 종료 상태가 $N(R)$의 종료 상태가 됩니다.
+    $L(N(R)) = L(N(R_1)) L(N(R_2))$
+    
+    ![$R = R_1 \cdot R_2$ 다이어그램](./images/Lec2_13.png)
+
+5.  **정규 표현식 $R = R_1^*$ (스타 클로저, Kleene Closure):** 
+    $R_1$에 대한 NFA $N(R_1)$을 먼저 구성합니다.
+    새로운 초기 상태 $i$와 새로운 종료 상태 $f$를 만듭니다.
+    * $i$에서 $f$로 $\epsilon$-전이를 추가합니다 (0번 반복을 위함).
+    * $i$에서 $N(R_1)$의 초기 상태로 $\epsilon$-전이를 추가합니다.
+    * $N(R_1)$의 종료 상태에서 $f$로 $\epsilon$-전이를 추가합니다.
+    * $N(R_1)$의 종료 상태에서 $N(R_1)$의 초기 상태로 $\epsilon$-전이를 추가합니다 (1번 이상 반복을 위함).
+    $L(N(R)) = (L(N(R_1)))^*$
+
+    ![$R = R_1^*$ 다이어그램](./images/Lec2_14.png)
+
+*(참고: $R = \emptyset$ 에 대한 NFA는 시작 상태와 도달 불가능한 종료 상태, 또는 종료 상태가 없는 형태로 구성하여 어떤 문자열도 받아들이지 않도록 합니다. )*
+
+### 3.2 부분집합 구성법 (Subset Construction): NFA $\rightarrow$ DFA
+
+톰슨 구성법으로 얻은 NFA는 비결정성과 $\epsilon$-전이 때문에 직접 어휘 분석기로 사용하기에는 비효율적일 수 있습니다. 따라서 이를 효율적인 DFA로 변환하는 과정이 필요하며, 이때 **부분집합 구성법(Subset Construction)** 알고리즘이 사용됩니다.
+
+부분집합 구성법의 핵심 아이디어는 DFA의 각 상태가 NFA 상태들의 **부분집합**에 해당하도록 만드는 것입니다. 즉, DFA의 한 상태는 NFA에서 동시에 존재할 수 있는 여러 상태의 모음을 나타냅니다.
+
+#### $\epsilon$-클로저 ($\epsilon$-Closure)
+
+부분집합 구성법을 이해하기 위해서는 먼저 **$\epsilon$-클로저** 개념을 알아야 합니다. 
+NFA 상태들의 집합 $I$에 대한 $\epsilon\text{-Closure}(I)$는 $I$에 속한 임의의 상태 $s$에서 출발하여 $\epsilon$-전이만을 0번 이상 따라갔을 때 도달할 수 있는 모든 NFA 상태들의 집합입니다. 
+
+* **$\epsilon\text{-Closure}(I)$ 계산 알고리즘 (정의):**
+  $\epsilon\text{-closure}(I)$는 다음 두 조건을 만족하는 가장 작은 NFA 상태 집합 $T$입니다: 
+  1.  기본 경우(Base Case): $I$에 속한 모든 상태는 $T$에 포함됩니다 (즉, $I \subseteq T$).
+  2.  귀납적 단계(Inductive Step): 만약 상태 $s$가 $T$에 있고, $s$에서 상태 $s'$로 가는 $\epsilon$-전이 (즉, $s' \in \delta_{NFA}(s, \epsilon)$)가 존재한다면, $s'$ 또한 $T$에 포함됩니다.
+  이 집합 $T$는 $I$에 있는 임의의 상태에서 $\epsilon$-전이만을 0번 이상 따라 도달할 수 있는 모든 상태를 포함합니다. $T$가 $I$에서 시작하는 $\epsilon$-전이에 대해 닫혀있는(closed) 가장 작은 집합이라는 속성은 다음 조건으로도 특징지을 수 있습니다: 
+      [이미지: Lec2_19.png ($I \cup \bigcup_{s \in T} \delta(s, \epsilon) \subseteq T$)]
+  이는 $T$가 반드시 $I$를 포함해야 하며, 이미 $T$에 있는 어떤 상태에서든 단일 $\epsilon$-이동으로 도달할 수 있는 모든 상태 또한 $T$의 일부여야 함을 의미합니다 (이는 $T$를 넘어서는 더 이상의 확장이 불가능함을 암시합니다). 
+
+* **$\epsilon\text{-Closure}(I)$ 계산 알고리즘 (최소 고정점):**
+  함수 $F(X) = I \cup \left\{s' \mid s \in X \text{ and } s' \in \delta_{NFA}(s, \epsilon)\right\}$를 정의할 수 있습니다. (이 함수는 집합 $I$와 집합 $X$의 상태들로부터 단일 $\epsilon$-단계로 도달 가능한 모든 상태들을 계산합니다.) 
+      [이미지: Lec2_20.png ($F(X) = I \cup \bigcup_{s \in X} \delta(s, \epsilon)$)]
+  그러면 $\epsilon\text{-closure}(I)$는 $T = F(T)$ 방정식을 만족하는 가장 작은 집합 $T$입니다. 이 해 $T$를 $F$의 **최소 고정점(least fixed point)**이라고 부릅니다. 
+  이 최소 고정점은 아래 제시된 반복 알고리즘처럼 $F$를 반복적으로 적용하여 찾을 수 있습니다.
+
+* **$\epsilon\text{-Closure}(I)$ 계산을 위한 반복 알고리즘:** 
+    ```
+    T = I;
+    WorkList = I; // 처리할 상태들을 담는 작업 목록
+    while WorkList is not empty do
+    remove some state s from WorkList;
+    for each state s' such that s' ∈ δ_NFA(s, ε) do // s에서 s'로 가는 모든 ε-전이에 대해
+    if s' is not in T then
+    add s' to T;
+    add s' to WorkList;
+    end if
+    end for
+    end while
+    return T;
+    ```
+
+#### 부분집합 구성 알고리즘 (Subset Construction Algorithm)
+
+DFA의 각 상태 $d$는 NFA 상태들의 집합 $S$에 대해 $d = \epsilon\text{-closure}(S)$로 표현됩니다. 알고리즘은 다음과 같이 진행됩니다: 
+
+1.  **초기 상태 계산:** DFA의 초기 상태 $d_0$는 NFA의 초기 상태 $q_0$에 대한 $\epsilon\text{-closure}(\left\{q_0\right\})$ 입니다. $d_0$를 DFA 상태 집합 $Q_D$에 추가하고, 처리해야 할 상태 목록(예: 워크리스트 $W$)에 추가합니다. 
+2.  **반복:** 워크리스트 $W$가 비어있지 않은 동안 다음을 반복합니다: 
+  a.  $W$에서 DFA 상태 $q_D$ (NFA 상태들의 집합임)를 하나 꺼냅니다.
+  b.  입력 알파벳 $\Sigma$의 각 기호 $c$에 대해 다음을 수행합니다:
+      i.  $\text{move}(q_D, c) = \bigcup_{s \in q_D} \delta_{NFA}(s, c)$. 즉, $q_D$에 속한 모든 NFA 상태에서 입력 $c$를 따라 전이할 수 있는 NFA 상태들의 집합을 구합니다.
+      ii. $t_D = \epsilon\text{-closure}(\text{move}(q_D, c))$. 이 $t_D$가 $q_D$에서 $c$ 입력을 받았을 때 전이할 다음 DFA 상태입니다.
+      iii. $\delta_{DFA}(q_D, c) = t_D$로 DFA의 전이 함수를 정의합니다.
+      iv. 만약 $t_D$가 $Q_D$에 새롭게 추가된 상태라면, $t_D$를 $W$에도 추가합니다. 
+3.  **종료 상태 결정:** DFA 상태 $q_D \in Q_D$가 종료 상태가 되는 조건은, $q_D$에 포함된 NFA 상태들 중 적어도 하나가 NFA의 종료 상태($N_A$)인 경우입니다. 즉, $F_D = \left\{q_D \in Q_D \mid q_D \cap N_A \ne \emptyset\right\}$ 입니다. 
+
+    ![부분집합 구성 알고리즘 의사 코드](./images/Lec2_18.png)
+
+#### 부분집합 구성 실행 예제 (Running Example)
+
+이 예제는 부분집합 구성 알고리즘이 NFA를 DFA로 어떻게 변환하는지 보여줍니다. 여기서 사용되는 (명시적으로 그려지진 않았지만 가정된) NFA는 다음과 같은 특징을 가진다고 가정합니다:
+* 상태 집합 $Q_{NFA}$는 $\left\{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, \dots\right\}$를 포함합니다.
+* 상태 $\left\{0\right\}$은 이 NFA의 시작 상태입니다.
+* 입력 알파벳 $\Sigma = \left\{a, b, c\right\}$ 입니다.
+* NFA의 전이 함수 $\delta_{NFA}$와 $\epsilon$-전이는 아래 단계에서 보여지는 결과를 도출합니다.
+
+목표는 DFA $D = (Q_{DFA}, \Sigma, \delta_{DFA}, d_0, F_{DFA})$를 구성하는 것입니다.
+
+1.  **초기 DFA 상태 $d_0$:** 
+  DFA의 초기 상태 $d_0$는 NFA 시작 상태의 $\epsilon\text{-closure}$입니다. NFA 시작 상태를 $q_0 = \{0\}$이라 하고, 이 상태에서 다른 상태로 가는 $\epsilon$-전이가 없어 확장되지 않는다고 가정하면:
+  $d_0 = \epsilon\text{-closure}(\left\{0\right\}) = \left\{0\right\}$ <br>
+    ![start -> {0}](./images/Lec2_15.png)
+
+2.  **$d_0$ (즉, $S = \left\{0\right\}$)로부터의 전이 계산:** 
+  $d_0 = \left\{0\right\}$과 각 입력 $x \in \Sigma$에 대해 $\delta_{DFA}(d_0, x) = \epsilon\text{-closure}(\text{move}(d_0, x))$를 계산합니다.
+  $\text{move}(S', \text{input}) = \bigcup_{s \in S'} \delta_{NFA}(s, \text{input})$입니다.
+
+    일반적인 계산 단계는 다음 이미지의 수식으로 표현됩니다: <br>
+    ![$\epsilon\text{-closure}(\bigcup_{s \in S} \delta(s, a))$](./images/Lec2_16_1.png)
+
+    * 입력 'a':
+        $S = \left\{0\right\}$이므로 $\text{move}(\left\{0\right\}, a) = \bigcup_{s \in \left\{0\right\}} \delta_{NFA}(s, a)$를 계산합니다.
+        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\{0\right\}} \delta_{NFA}(s, a)) = \left\{1, 2, 3, 4, 6, 9\right\}$입니다.
+        이 새로운 DFA 상태를 $d_1 = \left\{1, 2, 3, 4, 6, 9\right\}$라고 하면, $\delta_{DFA}(\left\{0\right\}, a) = d_1$입니다.
+
+    * 입력 'b':
+        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\{0\right\}} \delta_{NFA}(s, b)) = \emptyset$입니다.
+        이는 $\text{move}(\left\{0\right\}, b)$가 $\emptyset$이었음을 의미합니다.
+        따라서 $\delta_{DFA}(\left\{0\right\}, b) = \emptyset$입니다. (이는 DFA에서 비수용 "데드 상태"로의 전이를 의미하거나, 전이가 정의되지 않았음을 나타낼 수 있습니다.)
+
+    * 입력 'c':
+        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\{0\right\}} \delta_{NFA}(s, c)) = \emptyset$입니다.
+        따라서 $\delta_{DFA}(\left\{0\right\}, c) = \emptyset$입니다.
+
+        ![{0} --a--> {1,2,3,4,6,9}](./images/Lec2_16_2.png)
+
+3.  **새로운 DFA 상태(예: $d_1 = \left\{1, 2, 3, 4, 6, 9\right\}$)로부터의 전이 계산:** 
+  새로운 (아직 처리되지 않은) DFA 상태 $d_1 = \left\{1, 2, 3, 4, 6, 9\right\}$에 대해 각 입력 $x \in \Sigma$에 대한 전이를 계산합니다.
+
+    * $d_1$에서 입력 'a':
+        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\{1,2,3,4,6,9\right\}} \delta_{NFA}(s, a)) = \emptyset$.
+        따라서 $\delta_{DFA}(d_1, a) = \emptyset$.
+
+    * $d_1$에서 입력 'b':
+        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\{1,2,3,4,6,9\right\}} \delta_{NFA}(s, b)) = \left\{3, 4, 5, 6, 8, 9\right\}$.
+        이 새로운 DFA 상태를 $d_2 = \left\{3, 4, 5, 6, 8, 9\right\}$라고 하면, $\delta_{DFA}(d_1, b) = d_2$.
+
+    * $d_1$에서 입력 'c':
+        예제에 따르면, $\epsilon\text{-closure}(\bigcup_{s \in \left\{1,2,3,4,6,9\right\}} \delta_{NFA}(s, c)) = \left\{3, 4, 6, 7, 8, 9\right\}$.
+        이 새로운 DFA 상태를 $d_3 = \left\{3, 4, 6, 7, 8, 9\right\}$라고 하면, $\delta_{DFA}(d_1, c) = d_3$.
+
+        ![{1,2,3,4,6,9}에서 b, c로의 전이가 있는 다이어그램](./images/Lec2_17.png)
+
+이러한 과정은 새로운 DFA 상태가 더 이상 생성되지 않을 때까지 반복됩니다. 어떤 DFA 상태 $d_i$가 NFA의 종료 상태를 하나라도 포함하고 있다면, 그 DFA 상태 $d_i$는 DFA의 종료 상태가 됩니다. 
