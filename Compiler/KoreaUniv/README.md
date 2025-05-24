@@ -2066,4 +2066,177 @@ S
 
 **동적 분석 (Dynamic analysis)** : 459 임을 쉽게 알 수 있습니다.
 
-그러나 **정적 분석 (Static analysis)** 의 결과는 여러 가지가 될 수 있습니다. 
+그러나 **정적 분석 (Static analysis)** 의 결과는 여러 가지가 될 수 있습니다. 예: 정수, 홀수, 양수, 400이상 500 이하...
+
+정적 분석 과정은 다음과 같습니다.
+
+먼저 **abstact value domain** 을 정해야 합니다. 즉 연산의 눈높이를 정하는 것입니다. 실제 실행을 **partial order** 로 하는 경우는 거의 없지만 요약 실행에서는 **partial order** 로 값을 정의하여 실행합니다.
+
+상정한 요약 수준 (Abstraction level)에서 연산을 재해석합니다. 예를 들어 원래 곱셈은 $Z X Z$의 이항 연산이지만 요약 실행에서는 $V X V$로 새로 정의가 됩니다. 즉 실제 실행에 대응되는 요약 실행이 정의가 됩니다. 표현은 $\hat{\text{x}}$ 처럼 ^을 붙여서 요약된 연산임을 나타냅니다.
+
+요약 실행 domain을 이렇게 설정해봅시다. $\hat{V} = \{\top,e,o,\bot\}$. e는 even, o는 odd를 의미합니다. 
+
+이제 연산을 재해석 해야 합니다. 이런 식으로 진행하면 됩니다.
+- Top이랑 Top을 곱하면 Top, Top이랑 odd/even을 곱해도 Top, Top이랑 odd를 곱하면 odd. 
+- 이때 Top이랑 even의 곱은 **even** 이여야 합니다.
+- 그리고 bottom의 경우, bottom은 오류 상태를 나타내기에 어떤 연산을 해도 무조건 bottom이 나옵니다. 
+
+이제 실행을 해봅시다.
+
+$e\;\hat{\text{x}}\;e\;\hat{+}\;o\;\hat{\text{x}}\;o = o$ 라는 요약 실행 결과를 얻었습니다.
+
+Abstract Value는 실제 **concrete value의 집합** 을 의미합니다. **soundness** 라고 하는 것은 결과를 보고, 결과의 실제 의미를 따졌을 때 abstract value 안에 들어와야 sound 하다고 할 수 있습니다.
+
+Top은 임의의 수, bottom은 공집합을 의미합니다. 정적 실행은 버그가 없다는 것을 증명할 수는 있지만, 버그가 있다는 것을 증명할 수 없습니다. **false alarm** 이 있을 수 밖에 없기 때문입니다. 즉 false alarm은 있을 수 있지만 false negative는 없다는 것이 핵심입니다.
+
+예를 들어
+```
+void f (int x) {
+    y = x * 12 + 9 * 11;
+    assert (y % 2 == 1);
+}
+```
+이 코드에 대한 정적 분석을 진행할 떄 y가 홀수라는 것을 증명할 수 있습니다. 그러나
+
+```
+void f (int x) {
+    y = x + x;
+    assert (y % 2 == 0);
+}
+```
+이 경우에서는 y가 짝수인지 알 수 없기에 Top으로 취급이 됩니다. 그 결과 **assertion failure**, 즉 false alarm이 발생할 수 있습니다.
+
+### Example program
+```
+// a >= 0, b >= 0
+q = 0;
+r = a;
+while (r >= b) {
+  r = r - b;
+  q = q + 1;
+}
+assert(q >= 0);
+assert(r >= 0);
+```
+이 코드를 CFG로 나타내면 다음과 같습니다. <br>
+
+![cfg](./images/Lec13_1.png) <br>
+
+Sign domain을 이용해서 이 프로그램을 정적 분석 해봅시다. <br>
+
+![dom](./images/Lec13_2.png) <br>
+
+Top은 정수 전체, bottom은 항상 공집합을 의미합니다. pos는 양의 정수, neg는 음의 정수, zero는 0입니다.
+
+$\gamma(pos) = {1, 2, 3, ...}, \gamma(neg) = {-1, -2, -3, ...}$ 이런 식입니다. Abstract Domain을 정했으니 Abstract semantics를 정의해야 합니다. Top이랑 뭘 더하고 빼면 다 Top으로 간주하면 되는데, 쉽게 얘기해서 애매하면 다 Top입니다.
+
+코드를 보면 프로그램 실행 전에 `a, b`가 0 이상이라고 가정하고 있습니다. 그러나 현재의 Abstract Domain은 `0 이상`을 표현하지 못해 Top으로 나타내야 합니다. 벌써 느낌이 좋지 않습니다. 이제 각 명령어의 실행 후 상태를 나타내봅시다.
+
+- 1: q = zero
+- 2: q = zero, r = Top
+- 3: 3번은 나가는 flow가 두개입니다. 여전히 q = z, r = T
+- 4: loop로 들어왔습니다. r이랑 b를 비교하는데, 정해진게 없으니 Top을 반환해야 합니다. Abstract 연산도 **true, false** 가 존재합니다.
+- 5: q: z, r: T 
+- 6: q: pos, r: T. 그리고 이 결과가 루프의 헤드로 다시 들어갑니다.
+- Abstract 실행에서는 6번에서 온 값과 2번에서 온 값을 합쳐서 3번의 input을 만듭니다. (**least upper bound**). pos와 zero를 join하면 Top이 됩니다. 즉, 3번의 output이 **q = Top, r = Top** 으로 바뀝니다. 이 결과를 갖고 다시 4번으로 들어가 변화되는 상태를 모두 업데이트 합니다.
+- 다시 루프를 돌고오면 여전히 q = Top, r = Top 입니다. 변화가 없다, 즉 루프의 input memory가 **Fixed Point** 에 도달 하였으므로 이제 loop에 들어갈 필요 없이 7번으로 가면 됩니다.
+- 7: r이 b보다 작을 수도 있으니 프로그램이 종료가 됩니다.
+
+값이 변하는 모습을 보면 lattice의 order을 따라 **올라가기만** 하는 것을 알 수 있습니다. 올라갈수록 집합이 커지기 때문에 가능성만 늘어나고 확실한 정보가 줄어듭니다. 모순적이게도 정보가 제일 정확한건 **bottom** 입니다. 정적 분석에서 **bottom** 이 나왔다는 것은 문제가 있다는 것을 확실하게 증명할 수 있습니다. 
+
+이번에는 Sign Domain을 확장해서 다시 해봅시다. <br>
+
+![ex](./images/Lec13_3.png) <br>
+
+이제 0 이상, 0 이하와 같은 값의 집합도 표현할 수 있습니다. 같은 프로그램에 대해 다시 정적 분석을 해봅시다. <br>
+
+![new](./images/Lec13_4.png) <br>
+
+이제는 가정을 $a \mapsto nn, b \mapsto nn$와 같이 표현할 수 있습니다. 점선 화살표에 들어갈 걸 위에서부터 채워봅시다
+
+- 1: $a \mapsto nn, b \mapsto nn$ 
+- 2: $q \mapsto zero$
+- 3: $q \mapsto zero, r \mapsto nn$
+- 4: r도 non-negative, b도 non-negative라 조건문에서 true가 나올 수도 있습니다. 루프에 진입합시다
+- 5: r을 업데이트 하는데 결과를 예상할 수 없습니다. $q \mapsto zero, r \mapsto Top$ 
+- 6: $q \mapsto pos, r \mapsto Top$, Semantic이 단조 증가 하기 때문에 한번 Top으로 올라가면 다시 내려갈 수 없습니다 
+- 이제 2번에서 온 결과와 6번에서 온 결과를 **join (least upper bound)** 연산을 하여 3번의 inpui을 계산합시다. $q \mapsto nn, r \mapsto T$. 아직 고정점에 도달하지 않았습니다.
+- 다시 루프를 돌면 $q \mapsto nn, r \mapsto Top$이 됩니다. 다시 루프를 돌아도 이는 변하지 않기에 7번으로 가면 됩니다.
+
+**loop invariant**는 아무리 루프를 반복해도 변하지 않는 성질입니다. 예제에서는 q가 0 이상이라는 성질이 해당됩니다. 그리고 domain이 CPO이고 함수가 연속 함수이기 때문에 **fixed point** 는 항상 존재할 수 밖에 없습니다.
+
+## Abstract Semantics of While
+**While 언어** 의 문법과 (Concrete) 의미론은 다음과 같이 정의가 됩니다. 이전에 보았었습니다. <br>
+
+![con](./images/Lec13_5.png) <br>
+
+정적 분석은 이걸 요야약하는 것입니다. 일단 의미론이 정의되는 공간부터 요약을 해봅시다.
+
+### Abstract Values: Integers
+
+Concrete integer 집합 Z는 **complete lattice** $(\hat{\mathbf{Z}}, \sqsubseteq_{\hat{\mathbf{Z}}})$ 에 의해 다음과 같이 요약이 됩니다.
+
+$\hat{\mathbf{Z}} = \lbrace \top_{\hat{\mathbf{Z}}},\bot_{\hat{\mathbf{Z}}},\text{Pos},\text{Neg},\text{Zero} \rbrace$
+
+$\hat{a} \sqsubseteq_{\hat{\mathbf{Z}}} \hat{b} \Leftarrow\!\Rightarrow \hat{a} = \hat{b} \vee \hat{a} = \bot_{\hat{\mathbf{Z}}} \vee \hat{b} = \top_{\hat{\mathbf{Z}}}$ 으로 관계가 정해집니다.
+
+Abstract integer는 실제 정수들의 집합을 나타냅니다.
+
+- **요약 함수 (Abstraction function)** : $\alpha_{\hat{\mathbf{Z}}} : \mathcal{P}(\mathbf{Z}) \rightarrow \hat{\mathbf{Z}}$
+- **실체화 함수 (Concretization function)** : $\gamma_{\hat{\mathbf{Z}}} : \hat{\mathbf{Z}} \rightarrow \mathcal{P}(\mathbf{Z})$
+
+- $\alpha_{\hat{\mathbf{Z}}}(\emptyset) = \bot_{\hat{\mathbf{Z}}}$
+- $\alpha_{\hat{\mathbf{Z}}}(S) = \text{Pos}\;(\forall n \in S. n > 0)$
+- $\alpha_{\hat{\mathbf{Z}}}(S) = \text{Neg}\;(\forall n \in S. n < 0)$
+- $\alpha_{\hat{\mathbf{Z}}}(S) = \text{Zero}\;(S = {0})$
+- $\alpha_{\hat{\mathbf{Z}}}(S) = \top_{\hat{\mathbf{Z}}}$
+- $\gamma_{\hat{\mathbf{Z}}}(\bot_{\hat{\mathbf{Z}}}) = \emptyset$
+- $\gamma_{\hat{\mathbf{Z}}}(\top_{\hat{\mathbf{Z}}}) = \mathbf{Z}$
+- $\gamma_{\hat{\mathbf{Z}}}(\text{Pos}) = \lbrace n \in Z | n > 0 \rbrace$
+- $\gamma_{\hat{\mathbf{Z}}}(\text{Neg}) = \lbrace n \in Z | n < 0 \rbrace$
+- $\gamma_{\hat{\mathbf{Z}}}(\text{Zero}) = \lbrace 0 \rbrace$
+
+Join과 Meet은 다음고 같이 정의가 됩니다.
+
+- $\hat{a} \sqcup_{\hat{\mathbf{Z}}} \hat{b} = \hat{a}\;(\hat{b} \sqsubseteq_{\hat{\mathbf{Z}}}\hat{a})$
+- $\hat{a} \sqcup_{\hat{\mathbf{Z}}} \hat{b} = \hat{b}\;(\hat{a} \sqsubseteq_{\hat{\mathbf{Z}}}\hat{b})$
+- $\hat{a} \sqcup_{\hat{\mathbf{Z}}} \hat{b} = \top_{\hat{\mathbf{Z}}}$
+- $\hat{a} \sqcap_{\hat{\mathbf{Z}}} \hat{b} = \hat{b}\;(\hat{b} \sqsubseteq_{\hat{\mathbf{Z}}}\hat{a})$
+- $\hat{a} \sqcap_{\hat{\mathbf{Z}}} \hat{b} = \hat{a}\;(\hat{a} \sqsubseteq_{\hat{\mathbf{Z}}}\hat{b})$
+- $\hat{a} \sqcap_{\hat{\mathbf{Z}}} \hat{b} = \bot_{\hat{\mathbf{Z}}}$
+
+### Abstract Values: Booleans
+
+진리값 $\mathbf{T} = \lbrace true,false \rbrace$는 $(\hat{\mathbf{T}},\sqsubseteq_{\hat{\mathbf{T}}})$ 에 의해
+
+$\hat{\mathbf{T}} = \lbrace \top_{\hat{\mathbf{T}}},\bot_{\hat{\mathbf{T}}}, \widehat{true}, \widehat{false} \rbrace$
+
+$\hat{b_1} \sqsubseteq_{\hat{\mathbf{T}}} \hat{b_2} \Leftarrow\!\Rightarrow \hat{b_1} = \hat{b_2} \vee \hat{b_1} = \bot_{\hat{\mathbf{T}}} \vee \hat{b_2} = \top_{\hat{\mathbf{T}}}$ 로 요약이 됩니다. 
+
+- **요약 함수 (Abstraction function)** : $\alpha_{\hat{\mathbf{T}}} : \mathcal{P}(\mathbf{T}) \rightarrow \hat{\mathbf{T}}$
+- **실체화 함수 (Concretization function)** : $\gamma_{\hat{\mathbf{T}}} : \hat{\mathbf{T}} \rightarrow \mathcal{P}(\mathbf{T})$
+
+- $\alpha_{\hat{\mathbf{T}}}(\emptyset) = \bot_{\hat{\mathbf{T}}}$
+- $\alpha_{\hat{\mathbf{T}}}(\lbrace true \rbrace) = \widehat{true}$
+- $\alpha_{\hat{\mathbf{T}}}(\lbrace false \rbrace) = \widehat{false}$
+- $\alpha_{\hat{\mathbf{T}}}(\mathbf{T}) = \top_{\hat{\mathbf{T}}}$
+- $\gamma_{\hat{\mathbf{T}}}(\bot_{\hat{\mathbf{Z}}}) = \emptyset$
+- $\gamma_{\hat{\mathbf{T}}}(\widehat{true}) = \lbrace true \rbrace$
+- $\gamma_{\hat{\mathbf{T}}}(\widehat{false}) = \lbrace false \rbrace$
+- $\gamma_{\hat{\mathbf{T}}}(\top_{\hat{\mathbf{T}}}) = \mathbf{T}$
+
+Join과 Meet은 다음과 같이 정의가 됩니다.
+
+- $\hat{a} \sqcup_{\hat{\mathbf{T}}} \hat{b} = \hat{a}\;(\hat{b} \sqsubseteq_{\hat{\mathbf{T}}}\hat{a})$
+- $\hat{a} \sqcup_{\hat{\mathbf{T}}} \hat{b} = \hat{b}\;(\hat{a} \sqsubseteq_{\hat{\mathbf{T}}}\hat{b})$
+- $\hat{a} \sqcup_{\hat{\mathbf{T}}} \hat{b} = \top_{\hat{\mathbf{T}}}$
+- $\hat{a} \sqcap_{\hat{\mathbf{T}}} \hat{b} = \hat{b}\;(\hat{b} \sqsubseteq_{\hat{\mathbf{T}}}\hat{a})$
+- $\hat{a} \sqcap_{\hat{\mathbf{T}}} \hat{b} = \hat{a}\;(\hat{a} \sqsubseteq_{\hat{\mathbf{T}}}\hat{b})$
+- $\hat{a} \sqcap_{\hat{\mathbf{T}}} \hat{b} = \bot_{\hat{\mathbf{T}}}$
+
+### Abstract States
+실제 state는 $(\widehat{State},\sqsubseteq_{\widehat{State}})$ 에 의해 다음과 같이 요약 됩니다.
+
+$\widehat{State} = \text{Var} \rightarrow \hat{\mathbf{Z}}$
+
+$
