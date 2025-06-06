@@ -12,6 +12,9 @@ https://prl.korea.ac.kr/courses/cose312/2025/
 - [8. Lecture 8](#lecture-8)
 - [9. Lecture 9](#lecture-9)
 - [10. Lecture 10](#lecture-10)
+- [12. Lecture 12](#lecture-12)
+- [13. Lecture 13](#lecture-13)
+- [16. Lecture 16](#lecture-16)
 
 # Lecture 1
 Compiler: Software that **tranlates** source language into target language <br>
@@ -2239,4 +2242,251 @@ Join과 Meet은 다음과 같이 정의가 됩니다.
 
 $\widehat{State} = \text{Var} \rightarrow \hat{\mathbf{Z}}$
 
-$
+# Lecture 16
+![lec](./images/Lec16_1.png) <br>
+이제 **Middle End** 입니다. 최적화 단계에서는 한개 이상의 `pass`를 통해 중간 언어를 더 효율적으로 변환합니다. 물론 의미는 동일하게 유지해야 합니다. 
+
+## Common Subexpression Elimination
+```
+x = 2 * k + 1
+...            // k에 대한 새로운 정의가 없음
+y = 2 * k + 1
+```
+
+이렇게 이전에 계산된 표현식이 값이 변하지 않고 또 나오는 경우를 **common subexpression** 이라고 합니다. 다시 계산하는 대신 표현식 `E`의 값을 갖고 있는 변수로 대체할 수 있습니다.
+```
+x = 2 * k + 1
+...
+y = x
+```
+
+## Copy Propagation
+```
+u = v
+x = u + 1    =>    x = v + 1
+u = x      
+y = u + 2    =>    y = x + 2
+```
+
+`u = v` 명령어 후에는, `u`가 재정의되기 전까지 u 대신 v를 쓸 수 있습니다.
+
+## Deadcode Elimination
+프로그램의 어떤 **Point** 에서 변수가 **살아있다 (live)** 라는 것은 그 값이 결국 사용이 된다는 것입니다. 
+```
+u = v      // deadcode
+x = v + 1 
+u = x      // deadcode
+y = x + 2
+```
+`Live Varaible Analysis` 는 프로그램 끝에서부터 시작을 합니다. Line 4에서 `y`에 값을 할당 하는데 변수 `x`를 사용합니다: **live 변수 {x}** 
+
+Line 3에서도 변수 `x`를 사용해서 `u`에 값을 할당하기에 live 변수는 {x}지만 `u`가 이후에 사용되지 않아 이 할당은 **deadcode** 입니다. 
+나머지도 비슷한 방식으로 계산 가능합니다.
+
+## Constant Folding
+```
+c = 1
+x = c + c
+y = x + x
+```
+
+표현식의 값이 **상수**라는 것을 결정할 수 있다면 상수로 대체를 하는 것입니다.
+
+`c + c`가 2라는 걸 알 수 있으니 `x = 2`로 바뀌고, 연쇄적으로 `y = 4`로 바뀌는 방식입니다. <br>
+
+![ex](./images/Lec16_2.png) <br>
+
+위와 같은 프로그램이 있다고 할 때 최적화를 해봅시다. B5, B6에서 **Common Subexpression Elimination** 을 발견할 수 있고, 이를 통해 변수들을 줄여나갈 수 있습니다.
+또한 B2의 `t2 = 4 * i` 이후 B5로 오는 동안 i 값이 변하지 않기 때문에 `t6 = t2`, 비슷한 방식으로 `t8 = t4`라고 할 수 있습니다.
+
+이렇게 연쇄적으로 최적화를 통해 변수들과 명령문을 줄여나가면 다음과 같은 결과를 얻을 수 있습니다. <br>
+
+![opt](./images/Lec16_3.png) <br>
+
+## Data-Flow Analysis
+정적 분석을 `data flow analysis`라고 부르기도 하며, 이러한 분석을 할 대는 최적화에 특화되어 있는 domain을 사용합니다.
+
+## Reaching Definitions Analysis
+`Definition`은 statement, instruction 등을 의미한다고 생각해도 됩니다.
+
+**Definition d가 point p에 닿는다 (reach)** 는 것은 `d`에서 `p`까지 가는 경로 (path) 중에서 `d`가 **죽지 않는 (killed)** 경로가 존재한다는 것을 의미합니다. 따라서 RDA는
+각 프로그램 포인트에 대해 거기까지 닿는 definition들을 찾습니다.
+
+### Example: Reaching Definitions Analysis
+![ex](./images/Lec16_4.png) <br>
+
+예제를 통해 RDA를 살펴봅시다. 
+
+- **IN 집합** : 해당 블록에 진입할 때 도달 가능한 정의들을 의미합니다. 이전 블록들에서 전달된 정의들도 포함합니다.
+- **OUT 집합** : 해당 블록을 나갈 때 도달 가능한 정의들을 의미합니다. **IN 집합과 현재 블록에서 생성된 정의들의 합** 에서 **현재 블록에서 제거된 정의들** 을 빼면 구할 수 있습니다.
+
+B2를 보면 IN 집합이 B1의 OUT 집합과 B4의 OUT 집합을 포함하고 있다는 것을 알 수 있습니다. 즉 $IN(B2) = OUT(B2) \cup OUT(B4)$라고 할 수 있습니다. B2안에서 `i, j`가 재정의되고 있기 때문에
+kill 되는 definition 들은 빼줘야 합니다. $OUT(B2) = IN(B2) \cup GEN(B2) / KILL(B2)$ 이렇게 계산할 수 있습니다. 
+
+B4 역시 들어오는 경로가 둘이기 때문에 둘다 모아주어야 합니다. 
+
+이제 이 분석 결과로 다음 최적화를 할 수 있습니다.
+- Simple Constant Propagation: `n : x = ...v...` 꼴의 명령문이 있고 `v = c`가 n에 도달 가능하다면 n의 v를 c로 바꿔줄 수 있습니다. 
+- Loop Optimization: 루프 안에 있지만 루프 반복과 무관하게 **항상 같은 값을 가지는 코드 (Loop Invariant Code)** 를 루프 밖으로 빼주는 최적화입니다. 
+- Uninitialized Variable Detection: 처음 엔트리에 Top을 넣어두고 이 definition이 reachable 한지 확인을 하는 방식입니다. 만약 어떤 변수의 도달 정의에 Top이 포함된다면 **초기화되지 않은 경로가 존재** 한다는 것을 알 수 있습니다.
+
+### The Analysis is Conservative
+정확한 RDA 분석은 정적 분석만으로는 불가능하고, 실제 실행을 통해서 할 수 있습니다. 단적인 예를 들자면
+```
+a = rand();
+b = rand();
+c = rand();
+k = rand();
+if (a^k + b^k != c^k) {
+  // (1)
+} else {
+  // (2)
+}
+```
+이런 코드가 있을 때 정적 분석만으로 어떤 경로가 선택될지 결정할 수 없습니다. 그렇기에 RDA는 도달 정의들의 **over-approximation** 을 계산하여 **correctness** 를 보장하되 최적화 성능을 일부 포기합니다.
+
+RDA의 목표는 각 프로그램 포인트에서 다음 두 집합을 계산하는 것입니다.
+- $in : Block \rightarrow 2^{Definitions}$
+- $out : Block \rightarrow 2^{Definitions}$
+
+순서는 다음과 같습니다.
+
+1. **gen/kill** 집합을 계산합니다.
+2. 각 블록의 **전달 함수 (transfer function)** 을 gen/kill 집합으로 표현합니다.
+3. 각 블록의 IN 집합에 대한 방정식, 즉 **Data Flow eqaution** 을 도출합니다.
+4. 고정점 알고리즘으로 계산하여 해를 구합니다.
+
+### 1. Compute Gen/Kill Sets
+**gen(B)** 집합은 블락 B에서 `생성된` 정의들의 집합입니다.
+
+**kill(B)** 집합은 블락 B에서 `죽은 (killed)` 정의들의 집합입니다. 즉 블록의 정의들이 무효화시키는 다른 블록의 정의들이라고 생각해도 됩니다.
+
+```
+a = 3
+a = 4
+```
+이런 충돌이 발생하면 최종적으로 블록을 나갈 때 살아남는 정의만 Gen에 기록해야 합니다. 즉 **중간과정** 은 무시하고 최종적으로 다른 블록에 영향을 주는 정의들만 남기는 것입니다. <br>
+
+![gen](./images/Lec16_5.png) <br>
+
+이런식으로 계산을 할 수 있습니다. 일반화 해서 어떤 블록 B에 `d1`부터 `d_k`까지 k개의 정의가 있다고 한다면
+- $gen(B) = gen(d_k) \cup (gen(d_{k-1}) - kill(d_k)) \cup (gen(d_{k-2}) - kill(d-{k-1}) - kill(d_k)) \cup ... \cup (gen(d_1) - kill(d_2) - kill(d_3) - ... - kill(d_k))$
+- $kill(b) = kill(d_1) \cup kill(d_2) \cup ... \cup kill(d_k)$
+
+이런식으로 계산 할 수 있습니다. 
+
+### 2. Transfer Functions
+**전이 함수 (transfer function)** 는 각 베이직 블록 B마다 정의가 됩니다: $\mathcal{f}_B : 2^{Definitions} \rightarrow 2^{Definitions}$. 블록 B가 입력으로 받은 정의들 (Input Reaching Definition Set) 을 받아서 어떻게 변화시켜 출력하는지를 나타냅니다. 
+
+공식은 다음과 같습니다: $f_B(X) = gen(B) \cup (X - kill(B))$. 즉 **살아남은 기존 정의 + 새로 생성된 정의들** 을 의미합니다.
+
+### 3. Derive Data-Flow Equations
+![ex](./images/Lec16_6.png) <br>
+
+각각의 베이직 블록에 대해서 INSET은 **들어오는 OUTSET들의 union** 입니다. 그리고 각 블록의 출력은 입력에 전이 함수를 적용한 결과입니다. 
+
+- $\text{in}(B_i) = \bigcup\limits_{P \hookrightarrow B_i} \text{out}(P)$
+- $\text{out}(B_i) = f_{B_i}(\text{in}(B_i)) = \text{gen}(B_i) \cup (\text{in}(B_i) - \text{kill}(B_i))$
+
+의미는 다음과 같습니다. 먼저 IN은 블록 $B_i$로 들어오는 모든 선행 블록들에서 나가는 정보들의 합집합을 의미합니다. 그리고 출력은 해당 블록의 **전이 함수를 입력에 적용** 한 결과입니다. 
+
+### 4. Solve the Equations
+정확한 분석을 위해서는 방정식을 만족하는 **가장 작은 in,out** 이 필요합니다. 함수 F가 다음과 같이 정의가 될 때
+
+$F : (Block \to 2^{Definitions})^2 \to (Block \to 2^{Definitions})^2$
+
+$F(\text{in}, \text{out}) = (\lambda B. \bigcup\limits_{P \hookrightarrow B} \text{out}(P), \lambda B. f_B(\text{in}(B)))$
+
+$fixF$가 원하는 in,out, 즉 더이상 F를 적용해도 변하지 않는 상태가 됩니다. 계산은 $\bigcup\limits_{i \geq 0} F^i(\lambda B.\emptyset, \lambda B.\emptyset)$
+이런 식으로 하는데, 해석하자면 초기에는 모든 블록의 in,out을 공집합으로 설정한 다음 F를 계속 적용하는 것입니다. 
+
+이렇게 계산을 하며 **모든 반복 결과의 합집합** 이 최소 고정점이 됩니다. 실제 알고리즘으로 구현하면 다음과 같습니다. in과 out을 계속 업데이트 하는 것입니다.
+
+$$
+\begin{align}
+&\textbf{Fixed Point Algorithm} \\
+&\text{1. Initialization:} \\
+&\quad \text{For all } i, \quad in(B_i) = out(B_i) = \emptyset \\
+\\
+&\text{2. Iteration:} \\
+&\quad \textbf{while } (\text{changes to any } in \text{ and } out \text{ occur}) \{ \\
+&\quad\quad \text{For all } i, \text{ update} \\
+&\quad\quad\quad in(B_i) = \bigcup_{P \hookrightarrow B_i} out(P) \\
+&\quad\quad\quad out(B_i) = gen(B_i) \cup (in(B_i) - kill(B_i)) \\
+&\quad \}
+\end{align}
+$$
+
+## Liveness Analysis
+어떤 프로그램 포인트 p에서 변수가 **살아있다 (live)** 라고 말하려면 p에서 시작하는 어떤 경로를 통해 그 변수가 사용이 되어야 합니다. 미래에 그 변수가 사용되는 경로가 하나라도 있어야 한다는 뜻입니다.
+
+**Liveness Anaylsis** 는 각 프로그램 포인트에서 살아있는 변수들의 집합을 구하는 것을 목표로 합니다. 
+
+이때 살아있다라는 정보는 **may information**, 즉 가능성을 의미합니다. 실제로는 사용되지 않을 수 있지만 안전하게 `live`로 분류하는 것입니다. 
+
+그러나 죽었다 (dead)라는 정보는 **must information**, 즉 확실한 정보를 의미합니다. 모든 경로에서 사용하지 않는 것이 확실하기에 최적화에 사용할 수 있다는 뜻입니다. 
+
+### Example: Liveness of Variables
+![live](./images/Lec16_7.png) <br>
+Liveness analysis는 프로그램의 끝에서 시작하여 **거꾸로** 올라가면서, 각 지점에서 변수가 미래에 사용되는지를 판단합니다.
+
+변수 b부터 살펴보면 라인 2 (b = a + 1)에서 정의가 되고, 라인 3, 4에서 사용이 됩니다. 그렇기에 두 구간: **2->3, 3->4** 가 변수 b의 live range가 됩니다.
+
+변수 a의 경우 라인 1 (a = 0), 라인 4 (a = b *2) 두 곳에서 정의가 됩니다. 즉 두번째 정의 때 라인 1에서 정의한 a는 **죽습니다**. 그렇기에 변수 a의 live range는 **1->2, 4->5>2** 가 됩니다. 
+변수 c의 live range는 코드 전체입니다. 다음은 분석 결과입니다. <br>
+
+![analysis](./images/Lec16_8.png) <br>
+
+- IN: 해당 라인에 **진입할 때** 살아있는 변수들
+- OUT: 해당 라인을 **실행한 후** 살아있는 변수들
+
+블록 1의 IN에 뭐가 들어있으니 코드 위에 추가적인 프로그램이 더 있어야합니다. 그게 아니라면 초기화에 문제가 있다는 뜻입니다. 분석이 거꾸로 진행되기 때문에 변수가 마지막으로 사용되면 더 이상
+필요하지 않기 때문에 **죽습니다**. 
+
+### Applications
+- Deadcode elimination: 계산된 값이 사용되지 않는 할당문을 제거합니다. **n: x = y + z** 이런 명령문이 있고 만약 n에서 변수 `x`가 **죽어있다면** 명령문 n을 제거할 수 있습니다. 이전의 분석과 연결하여 설명하자면, 만약 할당문의 **OUT 집합** 에 할당한 변수가 없다면 죽은 할당문이라고 할 수 있습니다.
+- Uninitialized variable detection: 프로그램 엔트리에 살아있는 변수는 초기화가 되지 않은 가능성이 있습니다.
+- Register allocation
+  ```
+  a := c + d    r1 := r2 + r3
+  e := a + b    r1 := r1 + r4
+  f := e - 1    r1 := r1 - 1
+  ```
+  변수들의 live range를 계산해서 두 변수 a, b가 같은 순간에 동시에 살아있는 것이 아니라면 같은 레지스터를 할당할 수 있습니다. 
+
+Live analysis의 목표는 **IN, OUT 집합** 을 계산하는 것입니다.
+
+- $\text{in} : Block \rightarrow 2^{Var}$
+- $\text{out} : Block \rightarrow 2^{Var}$
+
+순서는 다음과 같습니다.
+
+1. **def/use 집합** 을 계산합니다.
+2. 각 블록의 **전달 함수 (transfer function)** 을 def/use 집합으로 표현합니다.
+3. 각 블록의 IN 집합에 대한 방정식, 즉 **Data Flow eqaution** 을 도출합니다.
+4. 고정점 알고리즘으로 계산하여 해를 구합니다.
+
+### Def/Use Sets
+![def](./images/Lec16_9.png) <br>
+**정의되는 변수** 와 **사용되는 변수** 를 분석한 다이어그램입니다. 정의 그대로 간단하게 채울 수 있습니다. 
+
+### Data-Flow Equations
+직관적으로 생각하면 다음과 같은 성질들을 도출할 수 있습니다.
+- 어떤 변수가 **use(B)** 에 있다면 블록 B의 진입점에서도 그 변수가 살아있음을 알 수 있습니다. (편의상 블록에는 명령문이 하나만 있다고 생각합니다.)
+- 어떤 변수가 블록 B의 마지막에 살아있고 **def(B)** 에는 없다면 그 변수는 블록 B의 진입점에서도 살아 있습니다.
+- 어떤 변수가 블록 B의 진입점에 살아있다면 선행 블록의 마지막에도 살아있습니다. 
+
+방정식은 다음과 같습니다. OUT의 경우 **후속 블록들의 IN 집합의 합** 을 계산하는 것입니다. 
+- $\text{in}(B) = \text{use}(B) \cup (\text{out}(B) - \text{def}(B))$
+- $\text{out}(B) = \bigcup\limits_{B \hookrightarrow S} \text{in}(S)$
+
+알고리즘으로 나타내면 다음과 같습니다. 보통 **끝에서 처음으로 (backward)** 구현합니다.
+
+$\text{For all } i, \text{in}(B_i) = \text{out}(B_i) = \emptyset \\
+\text{while (changes to any in and out occur) } \{ \\
+\quad \text{For all } i, \text{ update} \\
+\quad \quad \text{in}(B_i) = \text{use}(B_i) \cup (\text{out}(B_i) \setminus \text{def}(B_i)) \\
+\quad \quad \text{out}(B_i) = \bigcup_{B_i \hookrightarrow S} \text{in}(S) \\
+\}$
+
+## Available Expressions Analysis
