@@ -2304,7 +2304,7 @@ y = x + x
 ![opt](./images/Lec16_3.png) <br>
 
 ## Data-Flow Analysis
-정적 분석을 `data flow analysis`라고 부르기도 하며, 이러한 분석을 할 대는 최적화에 특화되어 있는 domain을 사용합니다.
+정적 분석을 `data flow analysis`라고 부르기도 하며, 이러한 분석을 할 때는 최적화에 특화되어 있는 domain을 사용합니다.
 
 ## Reaching Definitions Analysis
 `Definition`은 statement, instruction 등을 의미한다고 생각해도 됩니다.
@@ -2402,21 +2402,12 @@ $fixF$가 원하는 in,out, 즉 더이상 F를 적용해도 변하지 않는 상
 
 이렇게 계산을 하며 **모든 반복 결과의 합집합** 이 최소 고정점이 됩니다. 실제 알고리즘으로 구현하면 다음과 같습니다. in과 out을 계속 업데이트 하는 것입니다.
 
-$$
-\begin{align}
-&\textbf{Fixed Point Algorithm} \\
-&\text{1. Initialization:} \\
-&\quad \text{For all } i, \quad in(B_i) = out(B_i) = \emptyset \\
-\\
-&\text{2. Iteration:} \\
-&\quad \textbf{while } (\text{changes to any } in \text{ and } out \text{ occur}) \{ \\
-&\quad\quad \text{For all } i, \text{ update} \\
-&\quad\quad\quad in(B_i) = \bigcup_{P \hookrightarrow B_i} out(P) \\
-&\quad\quad\quad out(B_i) = gen(B_i) \cup (in(B_i) - kill(B_i)) \\
-&\quad \}
-\end{align}
-$$
-
+$\text{For all } i, \text{in}(B_i) = \text{out}(B_i) = \emptyset \\
+\text{while (changes to any in and out occur) } \{ \\
+\quad \text{For all } i, \text{ update} \\
+\quad \quad \text{in}(B_i) = \text{gen}(B_i) \cup (\text{in}(B_i) \setminus \text{kill}(B_i)) \\
+\quad \quad \text{out}(B_i) = \bigcup\limits_{P \hookrightarrow B_i} \text{out}(P) \\
+\}$
 ## Liveness Analysis
 어떤 프로그램 포인트 p에서 변수가 **살아있다 (live)** 라고 말하려면 p에서 시작하는 어떤 경로를 통해 그 변수가 사용이 되어야 합니다. 미래에 그 변수가 사용되는 경로가 하나라도 있어야 한다는 뜻입니다.
 
@@ -2490,3 +2481,111 @@ $\text{For all } i, \text{in}(B_i) = \text{out}(B_i) = \emptyset \\
 \}$
 
 ## Available Expressions Analysis
+![available](./images/Lec16_10.png) <br>
+
+엔트리 노드에서 시작해서 `포인트 p`로 어떤 경로를 통해서 가더라도 항상 어떤 expression이 실행되고 `p`에 도달할 때까지 표현식의 값이 변하지 않는다면 **사용 가능하다 (Available)** 고 얘기합니다.
+표현식이 항상 준비가 되어있다, 다시 계산할 필요가 없다 이런 의미로 생각해도 좋습니다. 이 분석 결과는 **common subexpression elimination** 에 활용될 수 있습니다. 참고로 사용 가능한 표현식 분석은
+**must 정보**, 즉 **under-approximation** 에 해당합니다. 어떻게 실행해도 이 표현식은 반드시 실행된다는 것을 보장한다는 뜻입니다. 
+
+분석 목표는 다음과 같은 **IN, OUT 집합** 을 계산하는 것입니다.
+
+- $\text{in} : Block \rightarrow 2^{Expr}$
+- $\text{out} : Block \rightarrow 2^{Expr}$
+
+1. **data-flow-equation** 을 도출합니다.
+2. 고정점 알고리즘을 계산하여 해를 구합니다.
+
+### Gen/Kill Sets
+- **gen(B)**: 블록에서 새로 생성되는 **사용 가능한 표현식 (available expression)** 을 의미합니다. 블록에서 계산되고, 그 이후에 무효화 되지 않아야 합니다.
+- **kill(B)**: 블록에서 무효화되는 표현식을 의미합니다. 표현식에 포함된 변수가 **재정의** 되면 그 표현식은 더 이상 사용 가능하지 않게 됩니다. 
+
+![tab](./images/Lec16_11.png) <br>
+
+명령문 4개를 하나씩 살펴보겠습니다.
+
+1. **x = y + z**: `y + z` 표현식을 새로 계산하고 있습니다. 그러나 동시에 `x`를 재정의하고 있기 때문에 kill(s), 이 명령문의 경우 **x를 포함한 모든 expression** 을 무효화하고 제외해야 합니다. 
+2. **x = alloc(n)**: `alloc(n)` 표현식은 함수 호출이라 사용 가능한 표현식으로 간주하지 않습니다. 이 명령문도 `x`를 재정의 하였기에 kill(s)는 이전과 같습니다.
+3. **x = y[i]**: `y[i]` 표현식을 새로 계산하고 있으며 kill(s)는 동일합니다.
+4. **x[i] = y**: 이 명령문은 할당문이면서 새로운 표현식을 **계산** 하지 않습니다. 단순한 값의 저장입니다. 그리고 kill(s)의 경우 정적 분석 단계에서는 i의 값을 정확히 모르기 때문에 **보수적으로 접근** 하여 `x[k]` 형태의 모든 표현식을 무효화합니다. 
+
+### 1. Set up a set of data-flow equations
+직관저긍로 생각하면 다음과 같은 성질들을 도출할 수 있습니다.
+1. 엔트리에서는 어떤 표현식도 사용 가능하지 않습니다.
+2. 어떤 표현식이 블록의 진입점에서 사용 가능하려면, **모든 선행 노드들의 끝** 에서 사용 가능해야 합니다. 
+
+방정식은 다음과 같습니다. IN 집합 은 블록 B로 들어오는 **모든 선행 노드들의 OUT의 교집합** 을 의미합니다. 
+
+$\text{in}(ENTRY) = \emptyset \\
+\text{out}(B) = \text{gen}(B) \cup (\text{in}(B) \setminus \text{kill}(B)) \\
+\text{in}(B) = \bigcap\limits_{P \to B} \text{out}(P)$
+
+### 2. Solve the equations
+이 분석은 **must 정보** 를 계산하는 과정이기에 가장 많은 정보, 즉 **greatest-fixed point** 를 필요로 합니다.
+
+$\text{in}(ENTRY) = \emptyset \\
+\text{For other } B_i, \text{in}(B_i) = \text{out}(B_i) = Expr \\
+\text{while (changes to any in and out occur) } \{ \\
+\quad \text{For all } i, \text{ update} \\
+\quad \quad \text{in}(B_i) = \bigcap_{P \hookrightarrow B_i} \text{out}(P) \\
+\quad \quad \text{out}(B_i) = \text{gen}(B_i) \cup (\text{in}(B_i) \setminus \text{kill}(B_i)) \\
+\}$
+
+## Constant Folding
+**상수 폴딩 (Constant Folding)** 은 컴파일 시점에 상수 표현식의 값을 미리 계산하는 최적화 기법입니다. **상수 전파 분석 (Constant Propagation Analysis)** 를 통하여 각 프로그램 포인트에서 어떤 경로로 프로그램이 실행되어도 변수가 상수 값을 가지는지 계산, 결정합니다. <br>
+
+![analysis](./images/Lec16_12.png) <br>
+
+State의 join operation이 **변수별로 (pointwise)** 이뤄지고 있습니다: $d_1 \sqcup d_2 = \lambda x \in Var.d_1(x) \sqcup d_2(x)$
+
+### Constant Analysis
+분석 목표는 $\mathbb{C}$가 다음과 같은 **complete lattice, complete partial order** 로 주어질 때 IN, OUT을 계산하는 것입니다. Top, bottom이 있고 정수들이 양쪽으로 펼쳐진 **flat domain** 입니다.<br>
+
+![cpo](./images/Lec16_13.png) <br>
+
+- $\text{in} : Block \rightarrow (Var \rightarrow \mathbb{C})$
+- $\text{out} : Block \rightarrow (Var \rightarrow \mathbb{C})$
+
+$Var \rightarrow \mathbb{C}$의 함수들도 PO 관계를 유지하고 있습니다: $\forall d_1, d_2 \in (Var \rightarrow \mathbb{C}). d1 \sqsubseteq d2 \text{ iff } \forall_x \in Var. d_1(x) \sqsubseteq d_2(x)$
+
+### Transfer Function
+전이함수 $f_B : (Var \to \mathbb{C}) \rightarrow (Var \to \mathbb{C})$는 **요약 값 (abstract value)** 의 관점에서 프로그램의 실행을 모델링합니다. 블록 실행 전후의 변수 상태를 모델링한다고 생각해도 좋습니다. 
+
+예를 들어보자면
+
+- **z = 3**: $\lambda d.[z \mapsto 3]d$, 입력 상태 d에서 z를 3으로 업데이트 합니다. 
+- **x > 0**: $\lambda d.d$, 입력 상태를 그대로 출력합니다. 
+- **y = z +4**: 이 경우는 경우를 나눠야 합니다. 
+$\lambda d. \begin{cases}
+[y \mapsto \perp]d & d(z) = \perp \\
+[y \mapsto \top]d & d(z) = \top \\
+[y \mapsto d(z) + 4]d & \text{o.w.}
+\end{cases}$
+
+이런식으로 정확하게 계산할 수 있는 값은 계산하여 업데이트 합니다.
+
+$c \to x := e \mid x > n \\
+e \to n \mid x \mid e_1 + e_2 \mid e_1 - e_2$
+
+이런 간단한 커맨드가 있을 때 전이함수는 다음과 같이 정의될 수 있습니다.
+
+$f_{x:=e}(d) = [x \mapsto \llbracket e \rrbracket(d)]d$
+$f_{x>n}(d) = d$
+$\llbracket n \rrbracket(d) = n$
+$\llbracket x \rrbracket(d) = d(x)$
+$\llbracket e_1 + e_2 \rrbracket(d) = \llbracket e_1 \rrbracket(d) + \llbracket e_2 \rrbracket(d)$
+$\llbracket e_1 - e_2 \rrbracket(d) = \llbracket e_1 \rrbracket(d) - \llbracket e_2 \rrbracket(d)$
+
+### Data-Flow Equations
+방정식은 다음과 같습니다.
+
+$\text{in}(B) = \bigsqcup\limits_{P \hookrightarrow B} \text{out}(P) \\
+\text{out}(B) = f_B(\text{in}(B))$
+
+고정점 계산을 알고리즘으로 구현하면 다음과 같습니다. 
+
+$\text{For all } i, \text{in}(B_i) = \text{out}(B_i) = \lambda x. \perp$
+$\text{while (changes to any in and out occur) } \{$
+$\quad \text{For all } i, \text{ update}$
+$\quad \quad \text{in}(B_i) = \bigsqcup_{P \hookrightarrow B_i} \text{out}(P)$
+$\quad \quad \text{out}(B_i) = f_{B_i}(\text{in}(B_i))$
+$\}$
