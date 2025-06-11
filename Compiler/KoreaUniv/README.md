@@ -1769,16 +1769,16 @@ Command의 표시적 의미론은 조금 다릅니다. <br>
 ### Denotational Semantics of Loops
 **while** 반복문의 의미는 다음 방정식을 만족하는 $State \hookrightarrow State$ 형태의 state에서 state로 가는 partial function입니다.
 
-$\mathcal{C}⟦\text{while}\;b\;c⟧ = cond(\mathcal{B}⟦b⟧,\mathcal{C}⟦\text{while}\;b\;c⟧◦\mathcal{C}⟦c⟧,id)$ 
+$\mathcal{C}⟦\text{while} \text{ }b \text{ }c⟧ = cond(\mathcal{B}⟦b⟧,\mathcal{C}⟦\text{while} \text{ }b \text{ }c⟧◦\mathcal{C}⟦c⟧,id)$ 
 
-이 방정식을 다시 써보면 $\mathcal{C}⟦\text{while}\;b\;c⟧ = F(\mathcal{C}⟦\text{while}\;b\;c⟧)$ 이고 이 때 $F : (State \hookrightarrow State) \to (State \hookrightarrow State)$ 는 $F(g) = cond(\mathcal{B}⟦b⟧, g ◦ \mathcal{C}⟦c⟧, id)$ 입니다. 
+이 방정식을 다시 써보면 $\mathcal{C}⟦\text{while} \text{ }b \text{ }c⟧ = F(\mathcal{C}⟦\text{while} \text{ }b \text{ }c⟧)$ 이고 이 때 $F : (State \hookrightarrow State) \to (State \hookrightarrow State)$ 는 $F(g) = cond(\mathcal{B}⟦b⟧, g ◦ \mathcal{C}⟦c⟧, id)$ 입니다. 
 
 `while loop`의 의미는 **F의 least fixed point** 로 정의가 됩니다.
 
-$\mathcal{C}⟦\text{while}\;b\;c⟧ = fixF$ 이때 $fixF$는 `least fixed point of F`를 의미하고 $fix : ((State \hookrightarrow State) \to (State \hookrightarrow State)) \to (State \hookrightarrow State)$ 와 같이 `fixF`는 F를 적용해도 변하지 않는 함수를 찾아줍니다.
+$\mathcal{C}⟦\text{while} \text{ }b \text{ }c⟧ = fixF$ 이때 $fixF$는 `least fixed point of F`를 의미하고 $fix : ((State \hookrightarrow State) \to (State \hookrightarrow State)) \to (State \hookrightarrow State)$ 와 같이 `fixF`는 F를 적용해도 변하지 않는 함수를 찾아줍니다.
 
 ### Example: while ¬(x = 0) skip
-일단 $\mathcal{C}⟦\text{while}\;¬(x\;=\;0)\;\text{skip}⟧$, 이 command를 상식적인 선에서 정의를 해봅시다. 그리고 의미를 기계적으로 찾아봅시다.
+일단 $\mathcal{C}⟦\text{while} \text{ }¬(x \text{ }= \text{ }0) \text{ }\text{skip}⟧$, 이 command를 상식적인 선에서 정의를 해봅시다. 그리고 의미를 기계적으로 찾아봅시다.
 
 $$\lambda s. \begin{cases}
 s & \text{if } s(x) = 0 \\
@@ -1834,7 +1834,7 @@ s & \text{if } s(x) = 1 \\
 ![theory](./images/Lec12_3.png) <br>
 임의의 집합이 아니라 **CPO (Complete Partial Order)** 라는 특성을 만족하는 집합에 대해서 성립합니다.
 
-$\mathcal{f}\text{ : }\mathcal{D}\;\to\;\mathcal{D}$ 인 함수 f가 연속함수라면 항상 **least fixed point** 를 가지고 계산은 이렇게 할 수 있다는 뜻입니다.
+$\mathcal{f}\text{ : }\mathcal{D} \text{ }\to \text{ }\mathcal{D}$ 인 함수 f가 연속함수라면 항상 **least fixed point** 를 가지고 계산은 이렇게 할 수 있다는 뜻입니다.
 
 프로그램으로 따져보면 **CPO D** 는 프로그램의 의미 공간, 의미들은 **continuoun function f** 로 모델링 됩니다. 그렇기에 함수의 fixed point가 항상 존재하게 됩니다.
 
@@ -1888,7 +1888,7 @@ D를 $\text{X} \to \text{y}$라고 한다면 가장 작은 함수는 뭘까요? 
 ## Least Upper Bound
 ![lub](./images/Lec12_6.png) <br>
 
-$(\text({D},\sqsubseteq))$가 **poset** 이고 `D`의 부분집합 `Y`가 존재할 때 Y에 있는 어떠한 원소 d'를 선택해도 $d'\;\sqsubseteq\;d$라면 이게 **Y의 upper bound** 입니다. 이때 `d`는 Y에 있지 않아도 되고 집합 D에 속해있으면 됩니다.
+$(\text({D},\sqsubseteq))$가 **poset** 이고 `D`의 부분집합 `Y`가 존재할 때 Y에 있는 어떠한 원소 d'를 선택해도 $d' \text{ }\sqsubseteq \text{ }d$라면 이게 **Y의 upper bound** 입니다. 이때 `d`는 Y에 있지 않아도 되고 집합 D에 속해있으면 됩니다.
 
 Y의 모든 upper bound d'에 대해서 $d \sqsubseteq d'$가 성립할 때 d를 Y의 **least upper bound**라고 부릅니다. 
 
@@ -1899,7 +1899,7 @@ lub를 **join**이라고도 부르는데, $a \bigsqcup b$는 둘을 합칠 때 �
 ## Greatest Lower Bound
 ![glb](./images/Lec12_7.png) <br>
 
-$(\text({D},\sqsubseteq))$가 **poset** 이고 `D`의 부분집합 `Y`가 존재할 때 Y에 있는 어떠한 원소 d'를 선택해도 $d\;\sqsubseteq\;d'$라면 이게 **Y의 lower bound** 입니다. 이때 `d`는 Y에 있지 않아도 되고 집합 D에 속해있으면 됩니다.
+$(\text({D},\sqsubseteq))$가 **poset** 이고 `D`의 부분집합 `Y`가 존재할 때 Y에 있는 어떠한 원소 d'를 선택해도 $d \text{ }\sqsubseteq \text{ }d'$라면 이게 **Y의 lower bound** 입니다. 이때 `d`는 Y에 있지 않아도 되고 집합 D에 속해있으면 됩니다.
 
 Y의 lower bound d가 Y의 모든 lower bound d'에 대해서 $d' \sqsubseteq d$를 성립하면 d가 **Y의 greatest lower bound**입니다.
 
@@ -1978,7 +1978,7 @@ $(D_1,\sqsubseteq_1,\sqcup_1,\sqcap_1,\bot_1,\top_1)$과 $(D_2,\sqsubseteq_2,\sq
 프로그램의 semantics를 정의하는 함수들은 기본적으로 **단조 증가 (monotone)** 한다고 생각할 수 있습니다. 입력의 순서가 보존되면 출력의 순서도 보존된다는 의미입니다. 
 
 ### Example
-$(\mathcal{P}({a,b,c}),\sqsubseteq)$와 $(\mathcal{P}({d,e}),\sqsubseteq)$가 있고 $f_1,f_2\;\text{: }\mathcal{P}(\{a,b,c\}) \to \mathcal{P}(\{d,e\})$가 있다고 생각해봅시다. 다음과 같이 두 함수가 주어질 때 `f1,f2`가 **단조 증가** 하는지 확인해봅시다. <br>
+$(\mathcal{P}({a,b,c}),\sqsubseteq)$와 $(\mathcal{P}({d,e}),\sqsubseteq)$가 있고 $f_1,f_2 \text{ }\text{: }\mathcal{P}(\{a,b,c\}) \to \mathcal{P}(\{d,e\})$가 있다고 생각해봅시다. 다음과 같이 두 함수가 주어질 때 `f1,f2`가 **단조 증가** 하는지 확인해봅시다. <br>
 
 ![fun](./images/Lec12_15.png) <br>
 
@@ -2001,7 +2001,7 @@ $F_2(g) = \lambda s. \begin{cases} g(s) & \text{if } s(x) \neq 0 \\ s & \text{if
 이 정리는 직관적으로 생각했을 때 당연하다는 사실을 알 수 있습니다. <br>
 
 ![lemma2](./images/Lec12_17.png) <br>
-$D_1,D_2$가 CPO이고, $f: D_1 \to D_2$가 단조 증가합니다. Y가 $D_1$의 chain이라고 할 때 $f(Y) = \{f(d)\;\text{|}\;d \in Y\}$ 역시 $D_2$에서의 chain이 됩니다. 이때 $\sqcup f(Y) \sqsubseteq_2 f(\sqcup Y)$가 성립합니다.
+$D_1,D_2$가 CPO이고, $f: D_1 \to D_2$가 단조 증가합니다. Y가 $D_1$의 chain이라고 할 때 $f(Y) = \{f(d) \text{ }\text{|} \text{ }d \in Y\}$ 역시 $D_2$에서의 chain이 됩니다. 이때 $\sqcup f(Y) \sqsubseteq_2 f(\sqcup Y)$가 성립합니다.
 
 오른쪽부터 보면, Y가 chain이고 $D_1$이 CPO이므로 chain Y 역시 **least upper bound** 를 가집니다. 거기에 함수 f를 적용한 것입니다. 
 
@@ -2009,7 +2009,7 @@ $D_1,D_2$가 CPO이고, $f: D_1 \to D_2$가 단조 증가합니다. Y가 $D_1$�
 
 chain Y이 다음과 같다고 합시다. $Y = {d_1, d_2, d_3, ...}$ 임의의 $f(d_i) \in f(Y)$에 대해:
 1. Y가 chain이므로 $d_i \in Y$
-2. $\sqcup Y$는 Y의 upper bound이므로 $d_i \sqsubseteq_1 \sqcup\;Y$
+2. $\sqcup Y$는 Y의 upper bound이므로 $d_i \sqsubseteq_1 \sqcup \text{ }Y$
 3. f가 단조 증가 하기 때문에 $d_i \sqsubseteq_1 \sqcup Y \Rightarrow f(d_i) \sqsubseteq_2 f(\sqcup Y)$
 
 이를 통해 $f(\sqcup Y)$가 $f(Y)$의 **upper bound** 임을 알 수 있습니다.
@@ -2093,7 +2093,7 @@ S
 
 이제 실행을 해봅시다.
 
-$e\;\hat{\text{x}}\;e\;\hat{+}\;o\;\hat{\text{x}}\;o = o$ 라는 요약 실행 결과를 얻었습니다.
+$e \text{ }\hat{\text{x}} \text{ }e \text{ }\hat{+} \text{ }o \text{ }\hat{\text{x}} \text{ }o = o$ 라는 요약 실행 결과를 얻었습니다.
 
 Abstract Value는 실제 **concrete value의 집합** 을 의미합니다. **soundness** 라고 하는 것은 결과를 보고, 결과의 실제 의미를 따졌을 때 abstract value 안에 들어와야 sound 하다고 할 수 있습니다.
 
@@ -2196,9 +2196,9 @@ Abstract integer는 실제 정수들의 집합을 나타냅니다.
 - **실체화 함수 (Concretization function)** : $\gamma_{\hat{\mathbf{Z}}} : \hat{\mathbf{Z}} \rightarrow \mathcal{P}(\mathbf{Z})$
 
 - $\alpha_{\hat{\mathbf{Z}}}(\emptyset) = \bot_{\hat{\mathbf{Z}}}$
-- $\alpha_{\hat{\mathbf{Z}}}(S) = \text{Pos}\;(\forall n \in S. n > 0)$
-- $\alpha_{\hat{\mathbf{Z}}}(S) = \text{Neg}\;(\forall n \in S. n < 0)$
-- $\alpha_{\hat{\mathbf{Z}}}(S) = \text{Zero}\;(S = {0})$
+- $\alpha_{\hat{\mathbf{Z}}}(S) = \text{Pos} \text{ }(\forall n \in S. n > 0)$
+- $\alpha_{\hat{\mathbf{Z}}}(S) = \text{Neg} \text{ }(\forall n \in S. n < 0)$
+- $\alpha_{\hat{\mathbf{Z}}}(S) = \text{Zero} \text{ }(S = {0})$
 - $\alpha_{\hat{\mathbf{Z}}}(S) = \top_{\hat{\mathbf{Z}}}$
 - $\gamma_{\hat{\mathbf{Z}}}(\bot_{\hat{\mathbf{Z}}}) = \emptyset$
 - $\gamma_{\hat{\mathbf{Z}}}(\top_{\hat{\mathbf{Z}}}) = \mathbf{Z}$
@@ -2208,11 +2208,11 @@ Abstract integer는 실제 정수들의 집합을 나타냅니다.
 
 Join과 Meet은 다음고 같이 정의가 됩니다.
 
-- $\hat{a} \sqcup_{\hat{\mathbf{Z}}} \hat{b} = \hat{a}\;(\hat{b} \sqsubseteq_{\hat{\mathbf{Z}}}\hat{a})$
-- $\hat{a} \sqcup_{\hat{\mathbf{Z}}} \hat{b} = \hat{b}\;(\hat{a} \sqsubseteq_{\hat{\mathbf{Z}}}\hat{b})$
+- $\hat{a} \sqcup_{\hat{\mathbf{Z}}} \hat{b} = \hat{a} \text{ }(\hat{b} \sqsubseteq_{\hat{\mathbf{Z}}}\hat{a})$
+- $\hat{a} \sqcup_{\hat{\mathbf{Z}}} \hat{b} = \hat{b} \text{ }(\hat{a} \sqsubseteq_{\hat{\mathbf{Z}}}\hat{b})$
 - $\hat{a} \sqcup_{\hat{\mathbf{Z}}} \hat{b} = \top_{\hat{\mathbf{Z}}}$
-- $\hat{a} \sqcap_{\hat{\mathbf{Z}}} \hat{b} = \hat{b}\;(\hat{b} \sqsubseteq_{\hat{\mathbf{Z}}}\hat{a})$
-- $\hat{a} \sqcap_{\hat{\mathbf{Z}}} \hat{b} = \hat{a}\;(\hat{a} \sqsubseteq_{\hat{\mathbf{Z}}}\hat{b})$
+- $\hat{a} \sqcap_{\hat{\mathbf{Z}}} \hat{b} = \hat{b} \text{ }(\hat{b} \sqsubseteq_{\hat{\mathbf{Z}}}\hat{a})$
+- $\hat{a} \sqcap_{\hat{\mathbf{Z}}} \hat{b} = \hat{a} \text{ }(\hat{a} \sqsubseteq_{\hat{\mathbf{Z}}}\hat{b})$
 - $\hat{a} \sqcap_{\hat{\mathbf{Z}}} \hat{b} = \bot_{\hat{\mathbf{Z}}}$
 
 ### Abstract Values: Booleans
@@ -2237,11 +2237,11 @@ $\hat{b_1} \sqsubseteq_{\hat{\mathbf{T}}} \hat{b_2} \Leftarrow\!\Rightarrow \hat
 
 Join과 Meet은 다음과 같이 정의가 됩니다.
 
-- $\hat{a} \sqcup_{\hat{\mathbf{T}}} \hat{b} = \hat{a}\;(\hat{b} \sqsubseteq_{\hat{\mathbf{T}}}\hat{a})$
-- $\hat{a} \sqcup_{\hat{\mathbf{T}}} \hat{b} = \hat{b}\;(\hat{a} \sqsubseteq_{\hat{\mathbf{T}}}\hat{b})$
+- $\hat{a} \sqcup_{\hat{\mathbf{T}}} \hat{b} = \hat{a} \text{ }(\hat{b} \sqsubseteq_{\hat{\mathbf{T}}}\hat{a})$
+- $\hat{a} \sqcup_{\hat{\mathbf{T}}} \hat{b} = \hat{b} \text{ }(\hat{a} \sqsubseteq_{\hat{\mathbf{T}}}\hat{b})$
 - $\hat{a} \sqcup_{\hat{\mathbf{T}}} \hat{b} = \top_{\hat{\mathbf{T}}}$
-- $\hat{a} \sqcap_{\hat{\mathbf{T}}} \hat{b} = \hat{b}\;(\hat{b} \sqsubseteq_{\hat{\mathbf{T}}}\hat{a})$
-- $\hat{a} \sqcap_{\hat{\mathbf{T}}} \hat{b} = \hat{a}\;(\hat{a} \sqsubseteq_{\hat{\mathbf{T}}}\hat{b})$
+- $\hat{a} \sqcap_{\hat{\mathbf{T}}} \hat{b} = \hat{b} \text{ }(\hat{b} \sqsubseteq_{\hat{\mathbf{T}}}\hat{a})$
+- $\hat{a} \sqcap_{\hat{\mathbf{T}}} \hat{b} = \hat{a} \text{ }(\hat{a} \sqsubseteq_{\hat{\mathbf{T}}}\hat{b})$
 - $\hat{a} \sqcap_{\hat{\mathbf{T}}} \hat{b} = \bot_{\hat{\mathbf{T}}}$
 
 ### Abstract States
