@@ -1760,32 +1760,32 @@ Command의 표시적 의미론은 조금 다릅니다. <br>
 
 ![command](./images/Lec12_2.png) <br>
 
-`◦`는 합성을 의미하며 $\mathcal{C}[[c_1;c_2]]$를 더 직접적으로 표현하면 $\mathcal{C}\llbracket c_2 \rrbracket(\mathcal{C}\llbracket c_1 \rrbracket)$ 이렇게 나타낼 수 있습니다.
+`◦`는 합성을 의미하며 $\mathcal{C}[[c_1;c_2]]$를 더 직접적으로 표현하면 $\mathcal{C}⟦ c_2 ⟧(\mathcal{C}⟦ c_1 ⟧)$ 이렇게 나타낼 수 있습니다.
 
 `cond`는 일종의 **고차 함수** 로 의미를 `f, g, h`에 전달해주면 s를 받아서 f(s)가 true면 g(s), false라면 h(s)를 반환합니다.
 
-`while`은 함수 F의 **fix point** 로 정의합니다. F의 고정점 g는 $F(g) = g$를 만족하는데, 즉 $g = cond(\mathcal{B}\llbracketb\rrbracket, g ◦ \mathcal{C}\llbracketc\rrbracket, id)$를 만족한다는 것입니다. 조건 b가 참이면 body c를 실행하고 다시 g (자기 자신)을 호출하고, 거짓이라면 아무것도 하지 않습니다. (id)
+`while`은 함수 F의 **fix point** 로 정의합니다. F의 고정점 g는 $F(g) = g$를 만족하는데, 즉 $g = cond(\mathcal{B}⟦b⟧, g ◦ \mathcal{C}⟦c⟧, id)$를 만족한다는 것입니다. 조건 b가 참이면 body c를 실행하고 다시 g (자기 자신)을 호출하고, 거짓이라면 아무것도 하지 않습니다. (id)
 
 ### Denotational Semantics of Loops
 **while** 반복문의 의미는 다음 방정식을 만족하는 $State \hookrightarrow State$ 형태의 state에서 state로 가는 partial function입니다.
 
-$\mathcal{C}\llbracket\text{while}\;b\;c\rrbracket = cond(\mathcal{B}\llbracketb\rrbracket,\mathcal{C}\llbracket\text{while}\;b\;c\rrbracket◦\mathcal{C}\llbracketc\rrbracket,id)$ 
+$\mathcal{C}⟦\text{while}\;b\;c⟧ = cond(\mathcal{B}⟦b⟧,\mathcal{C}⟦\text{while}\;b\;c⟧◦\mathcal{C}⟦c⟧,id)$ 
 
-이 방정식을 다시 써보면 $\mathcal{C}\llbracket\text{while}\;b\;c\rrbracket = F(\mathcal{C}\llbracket\text{while}\;b\;c\rrbracket)$ 이고 이 때 $F : (State \hookrightarrow State) \to (State \hookrightarrow State)$ 는 $F(g) = cond(\mathcal{B}\llbracketb\rrbracket, g ◦ \mathcal{C}\llbracketc\rrbracket, id)$ 입니다. 
+이 방정식을 다시 써보면 $\mathcal{C}⟦\text{while}\;b\;c⟧ = F(\mathcal{C}⟦\text{while}\;b\;c⟧)$ 이고 이 때 $F : (State \hookrightarrow State) \to (State \hookrightarrow State)$ 는 $F(g) = cond(\mathcal{B}⟦b⟧, g ◦ \mathcal{C}⟦c⟧, id)$ 입니다. 
 
 `while loop`의 의미는 **F의 least fixed point** 로 정의가 됩니다.
 
-$\mathcal{C}\llbracket\text{while}\;b\;c\rrbracket = fixF$ 이때 $fixF$는 `least fixed point of F`를 의미하고 $fix : ((State \hookrightarrow State) \to (State \hookrightarrow State)) \to (State \hookrightarrow State)$ 와 같이 `fixF`는 F를 적용해도 변하지 않는 함수를 찾아줍니다.
+$\mathcal{C}⟦\text{while}\;b\;c⟧ = fixF$ 이때 $fixF$는 `least fixed point of F`를 의미하고 $fix : ((State \hookrightarrow State) \to (State \hookrightarrow State)) \to (State \hookrightarrow State)$ 와 같이 `fixF`는 F를 적용해도 변하지 않는 함수를 찾아줍니다.
 
 ### Example: while ¬(x = 0) skip
-일단 $\mathcal{C}\llbracket\text{while}\;¬(x\;=\;0)\;\text{skip}\rrbracket$, 이 command를 상식적인 선에서 정의를 해봅시다. 그리고 의미를 기계적으로 찾아봅시다.
+일단 $\mathcal{C}⟦\text{while}\;¬(x\;=\;0)\;\text{skip}⟧$, 이 command를 상식적인 선에서 정의를 해봅시다. 그리고 의미를 기계적으로 찾아봅시다.
 $\lambda s. \begin{cases}
 s & \text{if } s(x) = 0 \\
 \text{undef} & \text{if } s(x) \neq 0
 \end{cases}$
 
 먼저 loop에 대한 F를 찾아야 합니다. `F(g)`의 정의를 그대로 가져옵시다.
-$F(g) = \text{cond}(\mathcal{B}\llbracketb\rrbracket, g \circ \mathcal{C}\llbracketc\rrbracket, \text{id})$
+$F(g) = \text{cond}(\mathcal{B}⟦b⟧, g \circ \mathcal{C}⟦c⟧, \text{id})$
 $\phantom{F(g)} = \text{cond}(\lambda s. s(x) \neq 0, g, \text{id})$
 $\phantom{F(g)} = \lambda s. \begin{cases}
 g(s) & \text{if } s(x) \neq 0 \\
@@ -2045,18 +2045,18 @@ S
 즉, 어떤 함수의 fixed point를 구할 때는 $\bot$부터 시작해서 f에 계속 적용시키다가 $f_i(\bot)$과 $f_i+1(\bot)$이 같아지는 순간이 **least fixed point** 라고 할 수 있습니다. 둘이 같다는건 chain이 유한하다는 것으로 계산을 마칠 수 있습니다.
 
 ## Well-definedness of the Semantics
-함수 $F(g) = \text{cond}(\mathcal{B}\llbracketb\rrbracket,g◦\mathcal{C}\llbracketc\rrbracket,\text{id})$ 는 연속 함수 입니다. 
+함수 $F(g) = \text{cond}(\mathcal{B}⟦b⟧,g◦\mathcal{C}⟦c⟧,\text{id})$ 는 연속 함수 입니다. 
 
 일단 $g_0 : \text{State} \hookrightarrow \text{State},p : \text{State} \to T$ 라고 하고 $F(g) = \text{cond}(p,g,g_0)$를 정의하면 F는 연속 함수 입니다. (**lemma 1**)
 
 그리고 $g_0 : \text{State} \hookrightarrow \text{State}$ 이고 $F(g) = g ◦ g_0$로 정의하면 F가 연속 함수 입니다. (**lemma 2**)
 
-원래 함수를 다시보면 $F(g) = \text{cond}(\mathcal{B}\llbracketb\rrbracket, g ◦ \mathcal{C}\llbracketc\rrbracket, \text{id})$, 이렇게 되어 있는데
+원래 함수를 다시보면 $F(g) = \text{cond}(\mathcal{B}⟦b⟧, g ◦ \mathcal{C}⟦c⟧, \text{id})$, 이렇게 되어 있는데
 
 이를 다음과 같이 분해할 수 있습니다.
 
-1. $h(g) = g ◦ \mathcal{C}\llbracketc\rrbracket$ : 두번째 lemma에 의해 연속
-2. $F(g) = \text{cond}(\mathcal{B}\llbracketb\rrbracket, h(g), \text{id})$ : 첫번째 lemma에 의해 연속
+1. $h(g) = g ◦ \mathcal{C}⟦c⟧$ : 두번째 lemma에 의해 연속
+2. $F(g) = \text{cond}(\mathcal{B}⟦b⟧, h(g), \text{id})$ : 첫번째 lemma에 의해 연속
 
 연속함수의 합성 역시 연속함수 이므로, $F$는 연속 함수 입니다. CPO에서 연속함수는 **least fixed point** 를 가지기 때문에 함수 F가 잘 정의되며 while 문의 **표시적 의미론** 이 수학적으로 올바르게 정의 됩니다.
 
@@ -2568,12 +2568,12 @@ e \to n \mid x \mid e_1 + e_2 \mid e_1 - e_2$
 
 이런 간단한 커맨드가 있을 때 전이함수는 다음과 같이 정의될 수 있습니다.
 
-$f_{x:=e}(d) = [x \mapsto \llbracket e \rrbracket(d)]d$
+$f_{x:=e}(d) = [x \mapsto ⟦ e ⟧(d)]d$
 $f_{x>n}(d) = d$
-$\llbracket n \rrbracket(d) = n$
-$\llbracket x \rrbracket(d) = d(x)$
-$\llbracket e_1 + e_2 \rrbracket(d) = \llbracket e_1 \rrbracket(d) + \llbracket e_2 \rrbracket(d)$
-$\llbracket e_1 - e_2 \rrbracket(d) = \llbracket e_1 \rrbracket(d) - \llbracket e_2 \rrbracket(d)$
+$⟦ n ⟧(d) = n$
+$⟦ x ⟧(d) = d(x)$
+$⟦ e_1 + e_2 ⟧(d) = ⟦ e_1 ⟧(d) + ⟦ e_2 ⟧(d)$
+$⟦ e_1 - e_2 ⟧(d) = ⟦ e_1 ⟧(d) - ⟦ e_2 ⟧(d)$
 
 ### Data-Flow Equations
 방정식은 다음과 같습니다.
