@@ -1917,7 +1917,7 @@ $\forall y_1, y_2 \in Y. y_1 \sqsubseteq y_2 \text{ or } y_2 \sqsubseteq y_1$, �
 다음과 같은 poset을 생각해봅시다. $(\mathcal{P}({a, b, c})), \subseteq$
 
 $Y_1 = \lbrace\emptyset,\lbrace a \rbrace,\lbrace a,c \rbrace\rbrace$: 이건 chain이 맞습니다
-$Y_2 = {\emptyset,{a},{c},{a,c}}$: 이건 {a}와 {c} 사이의 관계가 정의가 안 되어 있기 때문에 chain이 아닙니다.
+$Y_2 = \lbrace\emptyset,\lbrace a \rbrace,\lbrace c \rbrace,\lbrace a,c \rbrace\rbace$: 이건 {a}와 {c} 사이의 관계가 정의가 안 되어 있기 때문에 chain이 아닙니다.
 
 ## Complete Partial Order (CPO)
 poset $(D,\sqsubseteq)$는 D에 속한 모든 chain Y의 least upper bound가 D에 속할 때 **CPO** 의 성질을 만족합니다. 어떤 chain을 선택해도 그 나열 (sequence)이 무한히 늘어나는게 아니라 끝이 정해져 있다 이렇게 생각할 수 있습니다. 프로그램의 의미가 굉장히 특수한 공간에서 정의가 되는 것입니다. <br>
