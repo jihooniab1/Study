@@ -1785,16 +1785,16 @@ s & \text{if } s(x) = 0 \\
 \end{cases}$
 
 먼저 loop에 대한 F를 찾아야 합니다. `F(g)`의 정의를 그대로 가져옵시다.
-$F(g) = \text{cond}(\mathcal{B}⟦b⟧, g \circ \mathcal{C}⟦c⟧, \text{id})$
-$\phantom{F(g)} = \text{cond}(\lambda s. s(x) \neq 0, g, \text{id})$
-$\phantom{F(g)} = \lambda s. \begin{cases}
+$$F(g) = \text{cond}(\mathcal{B}⟦b⟧, g \circ \mathcal{C}⟦c⟧, \text{id})$$
+$$\qquad\quad = \text{cond}(\lambda s. s(x) \neq 0, g, \text{id})$$
+$$\qquad\quad = \lambda s. \begin{cases}
 g(s) & \text{if } s(x) \neq 0 \\
 \text{id}(s) & \text{if } s(x) = 0
-\end{cases}$
-$\phantom{F(g)} = \lambda s. \begin{cases}
+\end{cases}$$
+$$\qquad\quad = \lambda s. \begin{cases}
 g(s) & \text{if } s(x) \neq 0 \\
 s & \text{if } s(x) = 0
-\end{cases}$
+\end{cases}$$
 
 아까 상식적으로 찾은 loop의 의미를 `g1`이라고 할 때, F의 **least fixed point** 가 `g1`인지 확인을 해봅시다.
 
