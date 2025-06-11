@@ -1779,36 +1779,43 @@ $\mathcal{C}⟦\text{while}\;b\;c⟧ = fixF$ 이때 $fixF$는 `least fixed point
 
 ### Example: while ¬(x = 0) skip
 일단 $\mathcal{C}⟦\text{while}\;¬(x\;=\;0)\;\text{skip}⟧$, 이 command를 상식적인 선에서 정의를 해봅시다. 그리고 의미를 기계적으로 찾아봅시다.
-$\lambda s. \begin{cases}
+
+$$\lambda s. \begin{cases}
 s & \text{if } s(x) = 0 \\
 \text{undef} & \text{if } s(x) \neq 0
-\end{cases}$
+\end{cases}$$
 
 먼저 loop에 대한 F를 찾아야 합니다. `F(g)`의 정의를 그대로 가져옵시다.
+
 $$F(g) = \text{cond}(\mathcal{B}⟦b⟧, g \circ \mathcal{C}⟦c⟧, \text{id})$$
-$$\qquad\quad = \text{cond}(\lambda s. s(x) \neq 0, g, \text{id})$$
-$$\qquad\quad = \lambda s. \begin{cases}
+
+$$= \text{cond}(\lambda s. s(x) \neq 0, g, \text{id})$$
+
+$$= \lambda s. \begin{cases}
 g(s) & \text{if } s(x) \neq 0 \\
 \text{id}(s) & \text{if } s(x) = 0
 \end{cases}$$
-$$\qquad\quad = \lambda s. \begin{cases}
+
+$$= \lambda s. \begin{cases}
 g(s) & \text{if } s(x) \neq 0 \\
 s & \text{if } s(x) = 0
 \end{cases}$$
 
-아까 상식적으로 찾은 loop의 의미를 `g1`이라고 할 때, F의 **least fixed point** 가 `g1`인지 확인을 해봅시다.
+아까 상식적으로 찾은 loop의 의미를 `g₁`이라고 할 때, F의 **least fixed point**가 `g₁`인지 확인을 해봅시다.
 
-일단 **fix point** 가 존재하는지부터 봅시다.
+일단 **fixed point**가 존재하는지부터 봅시다.
 
-$F(g_1) = \lambda s. \begin{cases}
+$$F(g_1) = \lambda s. \begin{cases}
 g_1(s) & \text{if } s(x) \neq 0 \\
 s & \text{if } s(x) = 0
-\end{cases}$
-$\phantom{F(g_1)} = \lambda s. \begin{cases}
+\end{cases}$$
+
+$$= \lambda s. \begin{cases}
 \text{undef} & \text{if } s(x) \neq 0 \\
 s & \text{if } s(x) = 0
-\end{cases}$
-$\phantom{F(g_1)} = g_1$
+\end{cases}$$
+
+$$= g_1$$
 
 Fix point 가 맞다는 걸 확인했습니다. 사실 `g1`말고도 무한히 많은 fix point가 존재합니다. 
 $\lambda s. \begin{cases}
