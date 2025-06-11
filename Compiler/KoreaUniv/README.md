@@ -1916,7 +1916,7 @@ $\forall y_1, y_2 \in Y. y_1 \sqsubseteq y_2 \text{ or } y_2 \sqsubseteq y_1$, �
 
 다음과 같은 poset을 생각해봅시다. $(\mathcal{P}({a, b, c})), \subseteq$
 
-$Y_1 = {\emptyset,{a},{a,c}}$: 이건 chain이 맞습니다
+$Y_1 = \lbrace\emptyset,\lbrace a \rbrace,\lbrace a,c \rbrace\rbrace$: 이건 chain이 맞습니다
 $Y_2 = {\emptyset,{a},{c},{a,c}}$: 이건 {a}와 {c} 사이의 관계가 정의가 안 되어 있기 때문에 chain이 아닙니다.
 
 ## Complete Partial Order (CPO)
