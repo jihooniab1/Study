@@ -1917,7 +1917,7 @@ $\forall y_1, y_2 \in Y. y_1 \sqsubseteq y_2 \text{ or } y_2 \sqsubseteq y_1$, �
 다음과 같은 poset을 생각해봅시다. $(\mathcal{P}({a, b, c})), \subseteq$
 
 $Y_1 = \lbrace\emptyset,\lbrace a \rbrace,\lbrace a,c \rbrace\rbrace$: 이건 chain이 맞습니다
-$Y_2 = \lbrace\emptyset,\lbrace a \rbrace,\lbrace c \rbrace,\lbrace a,c \rbrace\rbace$: 이건 {a}와 {c} 사이의 관계가 정의가 안 되어 있기 때문에 chain이 아닙니다.
+$Y_2 = \lbrace\emptyset,\lbrace a \rbrace,\lbrace c \rbrace,\lbrace a,c \rbrace\rbrace$: 이건 {a}와 {c} 사이의 관계가 정의가 안 되어 있기 때문에 chain이 아닙니다.
 
 ## Complete Partial Order (CPO)
 poset $(D,\sqsubseteq)$는 D에 속한 모든 chain Y의 least upper bound가 D에 속할 때 **CPO** 의 성질을 만족합니다. 어떤 chain을 선택해도 그 나열 (sequence)이 무한히 늘어나는게 아니라 끝이 정해져 있다 이렇게 생각할 수 있습니다. 프로그램의 의미가 굉장히 특수한 공간에서 정의가 되는 것입니다. <br>
@@ -1926,11 +1926,11 @@ poset $(D,\sqsubseteq)$는 D에 속한 모든 chain Y의 least upper bound가 D�
 
 poset의 가장 작은 원소를 $\bot$, 가장 큰 원소를 $\top$으로 나타낸다면, CPO일 때 bottom이 **항상** 존재하고 empty set의 least upper bound로 정의할 수 있다는 것입니다.
 
-이를 직관적으로 증명하자면, 일단단 $\emptyset$은 원소가 없기 때문에 자명하게 chain이 됩니다. (chain의 조건이 모든 원소에 대한 관계가 존재해야 하는건데, 어차피 공집이라 가정 자체가 거짓이 됩니다.)
+이를 직관적으로 증명하자면, 일단 $\emptyset$은 원소가 없기 때문에 자명하게 chain이 됩니다. (chain의 조건이 모든 원소에 대한 관계가 존재해야 하는건데, 어차피 공집합이라 가정 자체가 거짓이 됩니다.)
 
 그리고 D가 CPO이기 때문에 모든 chain의 lub가 존재하고, 그렇기에 $\bigsqcup \emptyset$ 역시 D에 존재합니다.
 
-$\bigsqcup \emptyset$의 모든 원소보다 D의 bottom이 크냐?는 또다시 전제가 되어 조건을 만족하게 됩니다.
+$\bigsqcup \emptyset$의 모든 원소보다 D의 bottom이 크냐?는 또다시 전제가 거짓이 되어 조건을 만족하게 됩니다.
 
 ### Example 1
 S가 공집합이 아닐 때 $(\mathcal{P}(S),\sqsubseteq)$는 CPO입니다. lub $\sqcup Y$는 $\cup Y$입니다. 가장 작은 원소는 $\emptyset$입니다.
