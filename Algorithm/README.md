@@ -3,6 +3,7 @@
 
 # Index
 - [1. 파이썬 기초](#파이썬-기초-문법)
+- [2. 배열](#배열)
 
 # 파이썬 기초 문법
 ## 자료형
@@ -291,3 +292,55 @@ from collections import Counter
 counter = Counter(['red','blue','green','red'])
 print(counter['green']) # 1
 ```
+
+# 배열
+## 3273 두 수의 합
+```
+문제
+n개의 서로 다른 양의 정수 a1, a2, ..., an으로 이루어진 수열이 있다. ai의 값은 1보다 크거나 같고, 1000000보다 작거나 같은 자연수이다. 자연수 x가 주어졌을 때, ai + aj = x (1 ≤ i < j ≤ n)을 만족하는 (ai, aj)쌍의 수를 구하는 프로그램을 작성하시오.
+
+입력
+첫째 줄에 수열의 크기 n이 주어진다. 다음 줄에는 수열에 포함되는 수가 주어진다. 셋째 줄에는 x가 주어진다. (1 ≤ n ≤ 100000, 1 ≤ x ≤ 2000000)
+
+출력
+문제의 조건을 만족하는 쌍의 개수를 출력한다.
+```
+https://www.acmicpc.net/problem/3273
+
+제한시간이 1초라 단순하게 반복문을 탐색하는 방법으로는 힙들다. 이때는 **투포인터** 기법을 활용할 수 있다. 배열이 정렬되어 있을 때, 왼쪽 끝과 오른쪽 끝에 포인터를 배치해두고 조건에 따라 각 포인터를 이동시킨다.
+
+어차피 두 수의 합은 정해져 있으고, 배열의 각 원소는 서로 다른 양의 정수니 
+- arr[left] + arr[right] == x: left, right를 각각 1씩 증감
+- arr[left] + arr[right] < x: left만 1 증가
+- arr[left] + arr[right] > x: right만 1 감소
+
+**left < right** 조건이 유지되는 동안 반복문을 돌면서 위 연산을 반복하고, 카운트를 측정하면 된다.
+
+```
+import bisect
+
+n = int(input())
+arr = list(map(int,input().split()))
+x = int(input())
+
+arr.sort()
+
+cnt = 0
+left = 0
+right = n - 1
+
+while left < right:
+    cur = arr[left] + arr[right]
+
+    if cur == x:
+        cnt = cnt + 1
+        left = left + 1
+        right = right - 1
+    elif cur < x:
+        left = left + 1
+    else:
+        right = right - 1
+print(cnt)
+```
+
+# 연결 리스트
