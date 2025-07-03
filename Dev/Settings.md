@@ -97,25 +97,47 @@ sudo swtpm socket --tpmstate dir=/tmp/emulated_tpm \
 3. win.sh
 This starts Windows 11 emulation with ovmf firmware 
 ```
-sudo chown user:user /tmp/emulated_tpm/swtpm-sock
+#!/usr/bin/env bash
+
+TMPDIR="/tmp/emulated_tpm"
+
+sudo mkdir -p "${TMPDIR}"
+
+sudo swtpm socket \
+  --tpmstate dir="${TMPDIR}" \
+  --ctrl type=unixio,path="${TMPDIR}/swtpm-sock" \
+  --log level=20 \
+  --tpm2 &
+
+SWTPM_PID=$!
+
+sleep 1
+
+sudo chown user:user "${TMPDIR}/swtpm-sock"
+
 sudo qemu-system-x86_64 \
-    -cdrom /home/user/Work/ovmf/Win.iso \
     -cpu host \
     -enable-kvm \
+    -serial file:debug.log \
     -M q35 \
-    -m 8192 \
-    --chardev socket,id=chrtpm,path=/tmp/emulated_tpm/swtpm-sock \
+    -m 4096 \
+    --chardev socket,id=chrtpm,path="${TMPDIR}/swtpm-sock" \
     -tpmdev emulator,id=tpm0,chardev=chrtpm \
     -device tpm-tis,tpmdev=tpm0 \
     -smp 4 \
-    -device intel-hda \
-    -device hda-duplex \
     -usb \
     -device usb-tablet \
-    -vga qxl \
-    -nic user,ipv6=off,model=rtl8139,mac=84:1b:77:c9:03:a6 \
+    -vga std \
+    -nic user,ipv6=off,model=e1000 \
     -drive if=pflash,format=raw,readonly=on,file=OVMF_CODE.fd \
     -drive if=pflash,format=raw,file=OVMF_VARS.fd \
-    -drive file=hda-contents.img,format=raw \
-    -drive file=Win11.qcow2,format=qcow2
+    -drive file=Win11.qcow2,format=qcow2 \
+    -drive file=../hda-contents.img,format=raw \
+    -boot menu=on \
+    -cdrom Windows.iso
+
+sudo kill "${SWTPM_PID}"
+
+sudo chown user:user debug.log
+
 ```
