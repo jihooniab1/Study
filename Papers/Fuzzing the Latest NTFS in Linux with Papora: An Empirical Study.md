@@ -116,3 +116,5 @@ Papora는 8 코어 CPU와 16Gb 메모리의 VMware 가상머신에서 실행되�
 
 ### 2) Categorized by Root Cause
 버그 분석 결과 대부분은 사용자가 변경할 수 있는 데이터에 대한 **검증 과정** 부족이 원인이었다. 
+
+예를 들어 위조된 `offset` 필드는 
