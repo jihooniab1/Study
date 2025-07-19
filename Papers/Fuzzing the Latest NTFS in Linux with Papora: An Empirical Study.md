@@ -117,4 +117,58 @@ Papora는 8 코어 CPU와 16Gb 메모리의 VMware 가상머신에서 실행되�
 ### 2) Categorized by Root Cause
 버그 분석 결과 대부분은 사용자가 변경할 수 있는 데이터에 대한 **검증 과정** 부족이 원인이었다. 
 
-예를 들어 위조된 `offset` 필드는 
+예를 들어 위조된 `offset` 필드는 메타데이터를 캐시하기 위해 할당된 메모리 크기로 제한되지 않으면 OOB read로 이어질 수 있다. 게다가 `offset`이 다른 **number-of-entries** 필드에서 파생된 경우 `number-lf-entries X size-of-entry` 값이 충분히 클 때 오버플로우된 `offset`이 조작될 수 있다. 이러한 위조된 값은 경계값 검사를 우회할 수 있기에 사용자가 제어할 수 있는 데이터와 관련된 모든 산술 연산은 신중하게 이루어져야 한다. 
+
+Papora는 **type confusion** 버그들도 식별하였는데 본지는 **inode** 의 설계에서 비롯하는 Linux 파일 시스템의 흔한 버그라고 판단하고 있다. 각 **inode** 는 상태나 플래그에 따라 다양한 방식으로 해석될 수 있다. 아래 코드는 `ntfs_inode` 구조체이다.
+```
+union {
+    struct ntfs_index dir;
+    struct {
+        struct rw_semaphore run_lock;
+        struct runs_tree run;
+#ifdef CONFIG_NTFS3_LZX_XPRESS
+        struct page *offs_page;
+#endif
+    } file;
+}
+```
+위에서 볼 수 있듯이 `ntfs_inode` 구조체의 union은 각 `ntfs_inode`가 dir 또는 file 중 하나를 나타내도록 한다. 커밋 467333a는 NTFS3 구현이 MFT_REC_MFT 파일을 디렉터리로 잘못 해석하고 유효하지 않은 포인터를 kfree() 하여 힙을 손상시키는 사례를 보여준다. 그리고 Papora가 식별한 `c1ca8ef` 버그의 경우 **Always-Incorrect Control Flow Implementation** 유형으로 분류될 수 있는데 다시 말해 악의적인 입력을 준비하는 대신, 악의적인 행위자가 불완전한 테스트 커버리지로 인해 놓친 정상적인 테스트 케이스로 충돌을 유발할 수 있다.
+
+## B. Case Study on Type I
+![ntfs_mount](./images/Papora_4.png) <br>
+타입 I 버그는 NTFS 디스크를 마운트하는 동안 발생하며, 위 그림에서 그 과정을 확인할 수 있다. 마운트를 호출하면 Linux 시스템은 커널 공간으로 트랩되는데, 마운트 프로세스의 대부분은 **VFS 레이어** 에 의해 처리된다. Linux의 파일들은 트리와 같은 계층 구조로 배열되어 있기 때문에 `vfs_get_tree`는 마운트 가능한 루트를 얻기 위해 특화된 `ntfs_fs_get_tree` 를 호출한다. 
+
+NTFS 구현 내에서 **ntfs_fill_super** 함수가 중요한 역할을 하는데, 구체적으로는 **Partition Boot Sector** 를 파싱하고 클러스터 크기와 일반 파일의 최대 크기와 같은 매개변수 데이터를 읽는다. 또한 **Master File Table** 에서 모든 메타데이터 파일을 로드한다. 마지막으로, 디스크에서 NTFS 파일 시스템의 루트 디렉터리를 읽는다. 이 모든 로드된 데이터는 수퍼블록 구조인 `ntfs_sb_info`에 채워진다. 
+
+이 섹션에서는 새 개의 대표적인 타입 I 버그에 대한 케이스 스터디를 진행한다. 근본 원인은 다 다르지만 이미지가 마운트되면 시스템 크래시가 발생한다.
+
+### 1) 0b66046
+이 버그는 구현 오류에서 기인한 `null pointer dereference`에서 발생한다. 이전에 설명했듯이 `ntfs_fill_super`의 첫번째 과정은 Partition parse boot를 파싱하는 것인데, **ntfs_init_from_boot** 라는 함수에 구현되어 있고, 아래는 그 코드이다. 
+```
+static int ntfs_init_from_boot(struct super_block
+    * sb, u32 sector_size, u64 dev_size) {
+    // some operations
+    sbi -> record_size = record_size = boot ->
+        record_size < 0 ?
+    1 << (-boot -> record_size) :
+    (u32) boot -> record_size << sbi -> cluster_bits;
+
+    if (record_size > MAXIMUM_BYTES_PER_MFT)
+        goto out;
+
+    sbi -> record_bits = blksize_bits(record_size);
+    // some operations
+}
+
+    /* assumes size > 256 */
+static inline unsigned int blksize_bits(unsigned
+    int size) {
+    unsigned int bits = 8;
+    do {
+        bits++;
+        size >>= 1;
+    } while (size > 256);
+    return bits;
+}
+```
+일단 여기까지..
