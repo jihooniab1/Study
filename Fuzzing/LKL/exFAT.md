@@ -151,7 +151,30 @@ exFAT 볼륨의 다양한 파일 시스템 구조체 상태를 나타내는 플�
 | Reserved | 4 | 12 |
 
 ##### ActiveFat
+이 필드는 다음과 같이 활성 상태인 FAT와 Allocation Bitmap을 나타내야 함
+- 0: First FAT과 First Allocation Bitmap이 active
+- 1: Second FAT와 Second Allocation Bitmap이 active하고 `NumberOfFats` 필드에 2가 있는 경우에만 가능
 
+##### VolumeDirty
+다음과 같이 볼륨이 dirty인지 여부를 나타냄
+- 0: 볼륨이 아마 consistent state
+- 1: 볼륨이 아마 inconsistent state
+
+확인되지 않는 파일 시스템 메타데이터 불일치가 발생할 때 이 필드의 값을 1로 설정 => 볼륨 탑재할 때 이 필드의 값이 1이면 메타데이터 불일치를 해결한 후에 0으로 지울 수 있음
+
+##### MediaFailure
+다음과 같이 구현에서 미디어 오류를 발견했는지 여부를 나타냄
+- 0: 호스팅 미디어가 오류를 보고하지 않았거나 알려진 오류가 FAT에 이미 "잘못된" 클러스터로 기록
+- 1: 호스팅 미디어가 실패 보고(예를 들어 읽기, 쓰기 실패)
+
+다음 경우 필드 값을 1로 설정
+1. 호스팅 미디어가 볼륨의 모든 지역에 대한 액세스 시도 실패
+2. 구현에 액세스 다시 시도 알고리즘이 모두 사용
+
+볼륨 탑재할 때 이 필드의 값이 1 => 전체 볼륨에서 미디어 오류 검사하고 모든 오류를 FAT의 **잘못된** 클러스터로 기록하는 구현은 0으로 지울 수 있음
+
+##### ClearToZero
+큰 의미 없음
 
 #### BytesPerSectorShift Field
 섹터당 바이트 수를 log2(N)으로 표현. N은 섹터별 바이트 개수
@@ -159,14 +182,14 @@ exFAT 볼륨의 다양한 파일 시스템 구조체 상태를 나타내는 플�
 유효한 범위: 최소 9 (512바이트), 최대 12 (4096바이트)
 
 #### SectorsPerClusterShift Field
-클러스터당 섹터 수를 log2(N)으로 표현
+클러스터당 섹터 수를 log2(N)으로 표현. N은 클러스터별 섹터 수
 
 유효한 범위: 최소 0 (1섹터), 최대 25 - BytesPerSectorShift (32MB 클러스터)
 
 #### NumberOfFats Field
-볼륨에 포함된 FAT 및 Allocation Bitmap 수
+볼륨에 포함된 FAT 및 Allocation Bitmap 수. 
 
-유효한 값: 1 (First만) 또는 2 (First, Second 모두 - TexFAT만)
+유효한 값: 1 (볼륨이 First FAT랑 First Allocation Bitmap만 포함) 또는 2 (First, Second 모두 - TexFAT 볼륨에만 유효)
 
 #### DriveSelect Field
 확장 INT 13h 드라이브 번호 포함 (부트스트래핑용)
@@ -178,6 +201,8 @@ Cluster Heap에서 할당된 클러스터의 백분율
 
 유효한 범위: 0-100 (할당된 클러스터 백분율) 또는 FFh (사용 불가능)
 
+Cluster Heap에 있는 클러스터 할당에 변화가 생길 경우 이 필드에 반영해줘야 함. 체크섬 계산할 때는 제외
+
 #### BootCode Field
 부트스트래핑 명령어 포함
 
@@ -187,3 +212,52 @@ Cluster Heap에서 할당된 클러스터의 백분율
 해당 섹터가 Boot Sector인지 여부 표시
 
 유효한 값은 AA55h (다른 값은 Boot Sector를 무효화)
+
+### Main and Backup Extended Boot Sectors Sub-regions
+Main Extended Boot Sectors의 각 섹터는 구조가 같으나, 각 섹터가 고유한 `boot-strapping instruction`을 갖고 있을 수 있음.
+
+Main Boot Sector의 boot-strapping instruction, alternate BIOS 구현, 임베디드 시스템의 펌웨어 같은 부트 스트래핑 에이전트들은 이러한 섹터를 로드하고 포함된 instruction을 실행할 수 있음
+
+Main이나 Backup Extended Boot Sector의 instruction 실행 하기 전에 각 섹터의 **ExtendedBootSignature** 필드가 유효한 값 가지고 잇는지 확인해야 함
+
+| 필드 이름 | 오프셋(바이트) | 크기(바이트) |
+|-------|---------------|-------------|
+| ExtendedBootCode | 0 | 2<sup>BytesPerSectorShift</sup>-4 |
+| Extended Boot | 2<sup>BytesPerSectorShift</sup>-4 | 4 |
+
+- 참고: Main, Backup Boot Sector 모두 **BytesPerSectorShift** 필드 갖고 있음
+
+#### ExtendedBootCode
+부트 스트래핑 instruction이나 00h(부트 스트랩 코드 제공 안할 때)
+
+#### ExtendedBootSignature
+Vaild value는 **AA550000h**. 구현에서는 Extended Boot Sector의 다른 필드로 뭘 하기 전에 반드시 이 필드 먼저 확인해야 함
+
+### Main and Backup OEM Parameters Sub-regions
+- Main OEM Parameters sub-region => 10개의 parameter structure(제조사-specific 정보 포함) 갖오 있음. 
+
+각 파라미터들은 **Generic Parameter template** 으로부터 도출됨. 
+
+Backup OEM Parameters는 Main OEM parameters의 백업으로 구조가 같음. 얘네로 뭐 하기 전에 각각의 Boot Checksum 확인해줘야 함. 아래는 **OEM Parameters Structure** 
+
+| 필드 이름 | 오프셋(바이트) | 크기(바이트) |
+|-------|---------------|-------------|
+| Parameters[0] | 0 | 48 |
+| . | . | . |
+| . | . | . |
+| . | . | . |
+| Parameters[9] | 432 | 48 |
+| Reserved | 480 | 2<sup>BytesPerSectorShift</sup>-480 |
+
+#### Parameters[0] ... Parameters[9]
+이 배열의 각 파라미터 필드는 **parameter structure** 을 포함함 => `Generic Parameters template`에서 도출됨. 
+
+사용되지 않은 필드는 Null Parameter structure을 갖고 있느 걸로 나타냄
+
+#### Generic Parameters Template
+| 필드 이름 | 오프셋(바이트) | 크기(바이트) |
+|-------|---------------|-------------|
+| ParametersGuid | 0 | 16 |
+| CustomDefined | 16 | 32 |
+
+##### ParametersGuid Field
