@@ -21,13 +21,13 @@ https://github.com/torvalds/linux/tree/master/fs/exfat
 | Backup Reserved | 22 | 1 |    |
 | Backup Boot Checksum | 23 | 1 |    |
 | **FAT Region** |  |  |  [5](#file-allocation-table-region)  |
-| FAT Alignment | 24 | `FatOffset - 24` |    |
-| First FAT | `FatOffset` | `FatLength` |    |
-| Second FAT | `FatOffset + FatLength` | `FatLength * (NumberOfFats - 1)` |    |
+| FAT Alignment | 24 | FatOffset - 24 |    |
+| First FAT | FatOffset | FatLength |    |
+| Second FAT | FatOffset + FatLength | FatLength * (NumberOfFats - 1) |    |
 | **Data Region** |  |  | [6](#data-region)  |
-| Cluster Heap Alignment | `FatOffset + FatLength * NumberOfFats` | `ClusterHeapOffset-(FatOffset + FatLEngth * NumberOfFats)` |    |
-| Cluster Heap | `ClusterHeapOffset` | `ClusterCount * 2^SectorsPerClusterShift` |    |
-| Excess Space | ClusterHeapOffset + ClusterCount * 2<sup>SectorsPerClusterShift</sup> | `VolumeLength-(ClusterHeapOffset+ClusterCount * 2^SectorsPerClusterShift)` |    |
+| Cluster Heap Alignment | FatOffset + FatLength * NumberOfFats | ClusterHeapOffset-(FatOffset + FatLEngth * NumberOfFats) |    |
+| Cluster Heap | ClusterHeapOffset | ClusterCount * 2<sup>SectorsPerClusterShift</sup> |    |
+| Excess Space | ClusterHeapOffset + ClusterCount * 2<sup>SectorsPerClusterShift</sup> | VolumeLength-(ClusterHeapOffset+ClusterCount * 2<sup>SectorsPerClusterShift</sup>) |    |
 
 ## Main and Backup Boot Region
 - Main Boot Region: 다음을 수행할 수 있도록 필요한 `boot-strapping instructions`, `identifying information`, `file system parameter`들을 제공함
@@ -545,7 +545,19 @@ Generic Primary DirectoryEntry template을 해석하는 능력은 필수임.
 | DataLength | 24 | 8 |
 
 #### EntryType 필드
-Generic DirectoryEntry template에서 제공된 정의를 따름.
+Generic DirectoryEntry template에서 제공된 정의를 따름.[entry](#entrytype-필드)
+
+##### TypeCode 필드
+주어진 디렉터리 엔트리의 특정 타입을 부분적으로 설명함. 이 필드와 TypeImportance, TypeCategory 필드가 함께 주어진 디렉터리 엔트리의 타입을 고유하게 식별함.
+
+TypeImportance와 TypeCategory 필드가 모두 값 0을 포함하는 경우를 제외하고는 이 필드의 모든 가능한 값이 유효함; 그 경우 이 필드의 값 0은 무효임.
+
+##### TypeImportance 필드
+주어진 디렉터리 엔트리의 중요도를 설명함.
+
+유효한 값:
+- **0**: 주어진 디렉터리 엔트리가 중요함(critical)
+- **1**: 주어진 디렉터리 엔트리가 무해함(benign)
 
 ##### Critical Primary Directory Entries
 Critical primary 디렉터리 엔트리들은 exFAT 볼륨의 적절한 관리에 중요한 정보를 포함함. 루트 디렉터리만이 critical primary 디렉터리 엔트리들을 포함함(File 디렉터리 엔트리들은 예외).
@@ -556,6 +568,20 @@ Critical primary 디렉터리 엔트리들의 정의는 주요 exFAT 개정 번�
 Benign primary 디렉터리 엔트리들은 exFAT 볼륨 관리에 유용할 수 있는 추가 정보를 포함함. 어떤 디렉터리든 benign primary 디렉터리 엔트리들을 포함할 수 있음.
 
 Benign primary 디렉터리 엔트리들의 정의는 부 exFAT 개정 번호와 연관됨. 이 사양이나 후속 사양이 정의하는 benign primary 디렉터리 엔트리에 대한 지원은 선택사항임.
+
+##### TypeCategory 필드
+주어진 디렉터리 엔트리의 카테고리를 설명함.
+
+유효한 값:
+- **0**: 주어진 디렉터리 엔트리가 primary임
+- **1**: 주어진 디렉터리 엔트리가 secondary임
+
+##### InUse 필드
+주어진 디렉터리 엔트리가 사용 중인지 여부를 설명함.
+
+유효한 값:
+- **0**: 주어진 디렉터리 엔트리가 사용 중이 아님
+- **1**: 주어진 디렉터리 엔트리가 사용 중임
 
 #### SecondaryCount 필드
 주어진 primary 디렉터리 엔트리 바로 다음에 오는 secondary 디렉터리 엔트리의 수를 설명함. 이러한 secondary 디렉터리 엔트리들이 주어진 primary 디렉터리 엔트리와 함께 디렉터리 엔트리 세트를 구성함.
@@ -568,6 +594,29 @@ Benign primary 디렉터리 엔트리들의 정의는 부 exFAT 개정 번호와
 
 #### SetChecksum 필드
 주어진 디렉터리 엔트리 세트의 모든 디렉터리 엔트리들의 체크섬을 포함함. 하지만 체크섬은 이 필드를 제외함. 구현체들은 주어진 디렉터리 엔트리 세트의 다른 디렉터리 엔트리를 사용하기 전에 이 필드의 내용이 유효한지 확인해야 함.
+
+```
+UInt16 EntrySetChecksum
+(
+    UCHAR * Entries,       // points to an in-memory copy of the directory entry set
+    UCHAR   SecondaryCount
+)
+{
+    UInt16 NumberOfBytes = ((UInt16)SecondaryCount + 1) * 32;
+    UInt16 Checksum = 0;
+    UInt16 Index;
+
+    for (Index = 0; Index < NumberOfBytes; Index++)
+    {
+        if ((Index == 2) || (Index == 3))
+        {
+            continue;
+        }
+        Checksum = ((Checksum&1) ? 0x8000 : 0) + (Checksum>>1) +  (UInt16)Entries[Index];
+    }
+    return Checksum;
+}
+```
 
 #### GeneralPrimaryFlags 필드
 플래그들을 포함함.
@@ -594,10 +643,24 @@ Benign primary 디렉터리 엔트리들의 정의는 부 exFAT 개정 번호와
 - **0**: 할당의 클러스터 체인에 대한 해당 FAT 엔트리들이 유효하며 구현체들은 이를 해석해야 함
 - **1**: 연관된 할당이 하나의 연속된 클러스터 시리즈임; 클러스터들에 대한 해당 FAT 엔트리들은 무효하며 구현체들은 이를 해석하지 말아야 함
 
+#### FirstCluster 필드
+FirstCluster 필드는 Generic DirectoryEntry template에서 제공된 정의를 따라야 함.
+
+NoFatChain 비트가 1이면 FirstCluster는 클러스터 힙의 유효한 클러스터를 가리켜야 함.
+
+이 템플릿에서 파생된 Critical primary 디렉터리 엔트리 구조들은 FirstCluster와 DataLength 필드를 재정의할 수 있음. 이 템플릿에서 파생된 다른 구조들은 AllocationPossible 필드가 값 0을 포함하는 경우에만 FirstCluster와 DataLength 필드를 재정의할 수 있음.
+
+#### DataLength 필드
+DataLength 필드는 Generic DirectoryEntry template에서 제공된 정의를 따라야 함.
+
+NoFatChain 비트가 1이면 DataLength는 0이 아니어야 함. FirstCluster 필드가 0이면 DataLength도 0이어야 함.
+
+이 템플릿에서 파생된 Critical primary 디렉터리 엔트리 구조들은 FirstCluster와 DataLength 필드를 재정의할 수 있음. 이 템플릿에서 파생된 다른 구조들은 AllocationPossible 필드가 값 0을 포함하는 경우에만 FirstCluster와 DataLength 필드를 재정의할 수 있음.
+
 ### Generic Secondary DirectoryEntry Template
 Secondary 디렉터리 엔트리들의 중심 목적은 디렉터리 엔트리 세트에 대한 추가 정보를 제공하는 것임. Generic Secondary DirectoryEntry template을 해석하는 능력은 필수임.
 
-Critical과 benign secondary 디렉터리 엔트리들 모두의 정의는 부 exFAT 개정 번호와 연관됨. 이 사양이나 후속 사양이 정의하는 critical 또는 benign secondary 디렉터리 엔트리에 대한 지원은 선택사항임.
+Critical과 benign secondary 디렉터리 엔트리들 모두의 정의는 minor exFAT 개정 번호와 연관됨. 이 사양이나 후속 사양이 정의하는 critical 또는 benign secondary 디렉터리 엔트리에 대한 지원은 선택사항임.
 
 모든 secondary 디렉터리 엔트리 구조는 Generic DirectoryEntry template에서 파생된 Generic Secondary DirectoryEntry template에서 파생됨.
 
@@ -654,3 +717,299 @@ Generic DirectoryEntry template에서 제공된 정의를 따름.
 
 NoFatChain 비트가 1이면 DataLength는 0이 아니어야 함. FirstCluster 필드가 0이면 DataLength도 0이어야 함.
 
+## Directory Entry Definitions
+exFAT 파일시스템 버전 1.00은 다음과 같은 디렉터리 엔트리들을 정의함:
+
+**Critical primary**
+- Allocation Bitmap 
+- Up-case Table 
+- Volume Label 
+- File 
+
+**Benign primary**
+- Volume GUID 
+- TexFAT Padding 
+
+**Critical secondary**
+- Stream Extension 
+- File Name 
+
+**Benign secondary**
+- Vendor Extension 
+- Vendor Allocation
+
+### Allocation Bitmap Directory Entry
+exFAT 파일시스템에서는 FAT가 클러스터의 할당 상태를 설명하지 않고 Allocation Bitmap이 담당함. Allocation Bitmap은 Cluster Heap에 존재하며 루트 디렉터리에 해당하는 critical primary 디렉터리 엔트리를 가짐.
+
+NumberOfFats 필드가 루트 디렉터리의 유효한 Allocation Bitmap 디렉터리 엔트리 수를 결정함. NumberOfFats 필드가 값 1을 포함하면 유효한 Allocation Bitmap 디렉터리 엔트리 수는 1개뿐임. 또한 하나의 Allocation Bitmap 디렉터리 엔트리는 First Allocation Bitmap을 설명하는 경우에만 유효함. NumberOfFats 필드가 값 2를 포함하면 유효한 Allocation Bitmap 디렉터리 엔트리 수는 2개뿐임. 또한 두 Allocation Bitmap 디렉터리 엔트리는 하나는 First Allocation Bitmap을, 다른 하나는 Second Allocation Bitmap을 설명하는 경우에만 유효함.
+
+**Allocation Bitmap DirectoryEntry Structure**
+
+| 필드 이름 | 오프셋(바이트) | 크기(바이트) |
+|-------|---------------|-------------|
+| EntryType | 0 | 1 |
+| BitmapFlags | 1 | 1 |
+| Reserved | 2 | 18 |
+| FirstCluster | 20 | 4 |
+| DataLength | 24 | 8 |
+
+#### EntryType 필드
+Generic Primary DirectoryEntry template에서 제공된 정의를 따름.
+
+##### TypeCode 필드
+Allocation Bitmap 디렉터리 엔트리의 경우 이 필드의 유효한 값은 1임.
+
+##### TypeImportance 필드
+Allocation Bitmap 디렉터리 엔트리의 경우 이 필드의 유효한 값은 0임.
+
+#### BitmapFlags 필드
+플래그들을 포함함.
+
+**BitmapFlags Field Structure**
+
+| 필드 이름 | 오프셋(비트) | 크기(비트) | 설명 |
+|-------|---------------|-------------|------|
+| BitmapIdentifier | 0 | 1 | 필수 필드, 내용은 섹션 7.1.2.1에서 정의 |
+| Reserved | 1 | 7 | 필수 필드, 내용은 예약됨 |
+
+##### BitmapIdentifier 필드
+주어진 디렉터리 엔트리가 설명하는 Allocation Bitmap을 나타냄. 구현체들은 First Allocation Bitmap을 First FAT와 함께 사용해야 하며 Second Allocation Bitmap을 Second FAT와 함께 사용해야 함. ActiveFat 필드가 어떤 FAT와 Allocation Bitmap이 활성화되어 있는지 설명함.
+
+유효한 값:
+- **0**: 주어진 디렉터리 엔트리가 First Allocation Bitmap을 설명함을 의미
+- **1**: 주어진 디렉터리 엔트리가 Second Allocation Bitmap을 설명함을 의미하며 NumberOfFats가 값 2를 포함할 때만 가능함
+
+#### FirstCluster 필드
+Generic Primary DirectoryEntry template에서 제공된 정의를 따름.
+
+이 필드는 FAT가 설명하는 대로 Allocation Bitmap을 호스트하는 클러스터 체인의 첫 번째 클러스터의 인덱스를 포함함.
+
+#### DataLength 필드
+Generic Primary DirectoryEntry template에서 제공된 정의를 따름.
+
+#### Allocation Bitmap
+Allocation Bitmap은 Cluster Heap의 클러스터들의 할당 상태를 기록함. Allocation Bitmap의 각 비트는 해당 클러스터가 할당 가능한지 여부를 나타냄.
+
+Allocation Bitmap은 클러스터를 가장 낮은 인덱스부터 가장 높은 인덱스 순서로 나타냄. 역사적 이유로 첫 번째 클러스터는 인덱스 2를 가짐.
+
+**참고:** 비트맵의 첫 번째 비트는 첫 번째 바이트의 최하위 비트임.
+
+**Allocation Bitmap Structure**
+
+| 필드 이름 | 오프셋(비트) | 크기(비트) | 설명 |
+|-------|---------------|-------------|------|
+| BitmapEntry[2] | 0 | 1 | 필수 필드, 내용은 섹션 7.1.5.1에서 정의 |
+| . | . | . | . |
+| . | . | . | . |
+| . | . | . | . |
+| BitmapEntry[ClusterCount+1] | ClusterCount - 1 | 1 | 필수 필드, 내용은 섹션 7.1.5.1에서 정의 |
+| Reserved | ClusterCount | (DataLength * 8) – ClusterCount | 필수 필드, 내용은 예약됨 |
+
+##### BitmapEntry[2] ... BitmapEntry[ClusterCount+1] 필드들
+이 배열의 각 BitmapEntry 필드는 Cluster Heap의 클러스터를 나타냄. BitmapEntry[2]는 Cluster Heap의 첫 번째 클러스터를 나타내고 BitmapEntry[ClusterCount+1]은 Cluster Heap의 마지막 클러스터를 나타냄.
+
+유효한 값:
+- **0**: 해당 클러스터가 할당 가능함을 설명
+- **1**: 해당 클러스터가 할당 불가능함을 설명 (클러스터 할당이 이미 해당 클러스터를 소비했거나 활성 FAT가 해당 클러스터를 배드로 설명할 수 있음)
+
+### Up-case Table Directory Entry
+Up-case Table은 소문자에서 대문자로의 변환을 정의함. 이는 File Name 디렉터리 엔트리가 Unicode 문자를 사용하고 exFAT 파일시스템이 대소문자를 구분하지 않으면서 대소문자를 보존하기 때문에 중요함. Up-case Table은 Cluster Heap에 존재하며 루트 디렉터리에 해당하는 critical primary 디렉터리 엔트리를 가짐. 유효한 Up-case Table 디렉터리 엔트리 수는 1개임.
+
+Up-case Table과 파일 이름 간의 관계로 인해 구현체들은 포맷 작업의 결과를 제외하고는 Up-case Table을 수정해서는 안 됨.
+
+**Up-case Table DirectoryEntry Structure**
+
+| 필드 이름 | 오프셋(바이트) | 크기(바이트) | 설명 |
+|-------|---------------|-------------|------|
+| EntryType | 0 | 1 | 필수 필드, 내용은 섹션 7.2.1에서 정의 |
+| Reserved1 | 1 | 3 | 필수 필드, 내용은 예약됨 |
+| TableChecksum | 4 | 4 | 필수 필드, 내용은 섹션 7.2.2에서 정의 |
+| Reserved2 | 8 | 12 | 필수 필드, 내용은 예약됨 |
+| FirstCluster | 20 | 4 | 필수 필드, 내용은 섹션 7.2.3에서 정의 |
+| DataLength | 24 | 8 | 필수 필드, 내용은 섹션 7.2.4에서 정의 |
+
+#### EntryType 필드
+Up-case Table 디렉터리 엔트리의 경우 TypeCode 필드의 유효한 값은 2이고, TypeImportance 필드의 유효한 값은 0임.
+
+#### TableChecksum 필드
+FirstCluster와 DataLength 필드가 설명하는 Up-case Table의 체크섬을 포함함. 구현체들은 Up-case Table을 사용하기 전에 이 필드의 내용이 유효한지 확인해야 함.
+
+#### FirstCluster 필드
+이 필드는 FAT가 설명하는 대로 Up-case Table을 호스트하는 클러스터 체인의 첫 번째 클러스터의 인덱스를 포함함.
+
+#### Up-case Table
+Up-case table은 일련의 Unicode 문자 매핑임. 문자 매핑은 2바이트 필드로 구성되며, up-case table에서 필드의 인덱스는 대문자화될 Unicode 문자를 나타내고, 2바이트 필드는 대문자화된 Unicode 문자를 나타냄.
+
+처음 128개의 Unicode 문자는 필수 매핑을 가짐. 처음 128개의 Unicode 문자 중 어떤 것에 대해서라도 다른 문자 매핑을 가진 up-case table은 무효함.
+
+필수 매핑 범위의 문자만 지원하는 구현체들은 up-case table의 나머지 매핑을 무시할 수 있음. 이러한 구현체들은 파일을 생성하거나 이름을 바꿀 때 필수 매핑 범위의 문자만 사용해야 함.
+
+볼륨 포맷 시 구현체들은 압축된 형식으로 up-case table을 생성할 수 있음. 구현체들은 일련의 항등 매핑을 값 FFFFh와 항등 매핑의 수로 나타내어 up-case table을 압축함.
+
+### Volume Label Directory Entry
+Volume Label은 최종 사용자가 저장 볼륨을 구별할 수 있게 하는 Unicode 문자열임. exFAT 파일시스템에서 Volume Label은 루트 디렉터리의 critical primary 디렉터리 엔트리로 존재함. 유효한 Volume Label 디렉터리 엔트리 수는 0에서 1까지임.
+
+**Volume Label DirectoryEntry Structure**
+
+| 필드 이름 | 오프셋(바이트) | 크기(바이트) | 설명 |
+|-------|---------------|-------------|------|
+| EntryType | 0 | 1 | 필수 필드, 내용은 섹션 7.3.1에서 정의 |
+| CharacterCount | 1 | 1 | 필수 필드, 내용은 섹션 7.3.2에서 정의 |
+| VolumeLabel | 2 | 22 | 필수 필드, 내용은 섹션 7.3.3에서 정의 |
+| Reserved | 24 | 8 | 필수 필드, 내용은 예약됨 |
+
+#### EntryType 필드
+Volume Label 디렉터리 엔트리의 경우 TypeCode 필드의 유효한 값은 3이고, TypeImportance 필드의 유효한 값은 0임.
+
+#### CharacterCount 필드
+VolumeLabel 필드가 포함하는 Unicode 문자열의 길이를 포함함.
+
+유효한 값 범위:
+- **최소 0**: Unicode 문자열이 0자 길이임을 의미 (볼륨 레이블 없음과 동등)
+- **최대 11**: Unicode 문자열이 11자 길이임을 의미
+
+#### VolumeLabel 필드
+볼륨의 사용자 친화적 이름인 Unicode 문자열을 포함함. VolumeLabel 필드는 File Name 디렉터리 엔트리의 FileName 필드와 같은 무효 문자 집합을 가짐.
+
+### File Directory Entry
+File 디렉터리 엔트리들은 파일과 디렉터리를 설명함. 이들은 critical primary 디렉터리 엔트리이며 어떤 디렉터리든 0개 이상의 File 디렉터리 엔트리를 포함할 수 있음. File 디렉터리 엔트리가 유효하려면 정확히 하나의 Stream Extension 디렉터리 엔트리와 최소 하나의 File Name 디렉터리 엔트리가 File 디렉터리 엔트리 바로 다음에 와야 함.
+
+**File DirectoryEntry Structure**
+
+| 필드 이름 | 오프셋(바이트) | 크기(바이트) |
+|-------|---------------|-------------|
+| EntryType | 0 | 1 |
+| SecondaryCount | 1 | 1 |
+| SetChecksum | 2 | 2 |
+| FileAttributes | 4 | 2 |
+| Reserved1 | 6 | 2 |
+| CreateTimestamp | 8 | 4 |
+| LastModifiedTimestamp | 12 | 4 |
+| LastAccessedTimestamp | 16 | 4 |
+| Create10msIncrement | 20 | 1 |
+| LastModified10msIncrement | 21 | 1 |
+| CreateUtcOffset | 22 | 1 |
+| LastModifiedUtcOffset | 23 | 1 |
+| LastAccessedUtcOffset | 24 | 1 |
+| Reserved2 | 25 | 7 |
+
+#### EntryType 필드
+File 디렉터리 엔트리의 경우 TypeCode 필드의 유효한 값은 5이고, TypeImportance 필드의 유효한 값은 0임.
+
+#### FileAttributes 필드
+플래그들을 포함함.
+
+**FileAttributes Field Structure**
+
+| 필드 이름 | 오프셋(비트) | 크기(비트) |
+|-------|---------------|-------------|
+| ReadOnly | 0 | 1 |
+| Hidden | 1 | 1 |
+| System | 2 | 1 |
+| Reserved1 | 3 | 1 |
+| Directory | 4 | 1 |
+| Archive | 5 | 1 |
+| Reserved2 | 6 | 10 |
+
+#### Timestamp 필드들
+Timestamp 필드들은 2초 해상도까지 로컬 날짜와 시간을 모두 설명함.
+
+**Timestamp Field Structure**
+
+| 필드 이름 | 오프셋(비트) | 크기(비트) |
+|-------|---------------|-------------|
+| DoubleSeconds | 0 | 5 |
+| Hour | 11 | 5 |
+| Day | 16 | 5 |
+| Month | 21 | 4 |
+| Year | 25 | 7 |
+
+#### 10msIncrement 필드들
+10msIncrement 필드들은 해당 Timestamp 필드에 10밀리초 배수로 추가 시간 해상도를 제공함.
+
+유효한 값 범위: 0 (0밀리초)에서 199 (1990밀리초)까지
+
+#### UtcOffset 필드들
+UtcOffset 필드들은 해당 Timestamp와 10msIncrement 필드가 설명하는 로컬 날짜와 시간으로부터 UTC까지의 오프셋을 설명함.
+
+**UtcOffset Field Structure**
+
+| 필드 이름 | 오프셋(비트) | 크기(비트) |
+|-------|---------------|-------------|
+| OffsetFromUtc | 0 | 7 |
+| OffsetValid | 7 | 1 |
+
+### Volume GUID Directory Entry
+Volume GUID 디렉터리 엔트리는 구현체들이 볼륨을 고유하고 프로그래밍적으로 구별할 수 있게 하는 GUID를 포함함. Volume GUID는 루트 디렉터리의 benign primary 디렉터리 엔트리로 존재함. 유효한 Volume GUID 디렉터리 엔트리 수는 0에서 1까지임.
+
+### Stream Extension Directory Entry
+Stream Extension 디렉터리 엔트리는 File 디렉터리 엔트리 세트의 critical secondary 디렉터리 엔트리임. File 디렉터리 엔트리 세트의 유효한 Stream Extension 디렉터리 엔트리 수는 1개임. 또한 이 디렉터리 엔트리는 File 디렉터리 엔트리 바로 다음에 오는 경우에만 유효함.
+
+**Stream Extension DirectoryEntry Structure**
+
+| 필드 이름 | 오프셋(바이트) | 크기(바이트) |
+|-------|---------------|-------------|
+| EntryType | 0 | 1 |
+| GeneralSecondaryFlags | 1 | 1 |
+| Reserved1 | 2 | 1 |
+| NameLength | 3 | 1 |
+| NameHash | 4 | 2 |
+| Reserved2 | 6 | 2 |
+| ValidDataLength | 8 | 8 |
+| Reserved3 | 16 | 4 |
+| FirstCluster | 20 | 4 |
+| DataLength | 24 | 8 |
+
+#### NameLength 필드
+후속 File Name 디렉터리 엔트리들이 집합적으로 포함하는 Unicode 문자열의 길이를 포함함.
+
+유효한 값 범위: 1 (가장 짧은 파일 이름)에서 255 (가장 긴 파일 이름)까지
+
+#### NameHash 필드
+대문자화된 파일 이름의 2바이트 해시를 포함함. 이는 구현체들이 이름으로 파일을 검색할 때 빠른 비교를 수행할 수 있게 함.
+
+#### ValidDataLength 필드
+데이터 스트림에 사용자 데이터가 얼마나 멀리 쓰여졌는지 설명함. 구현체들은 데이터 스트림에 더 멀리 데이터를 쓸 때 이 필드를 업데이트해야 함.
+
+#### FirstCluster 필드
+사용자 데이터를 호스트하는 데이터 스트림의 첫 번째 클러스터의 인덱스를 포함함.
+
+### File Name Directory Entry
+File Name 디렉터리 엔트리들은 File 디렉터리 엔트리 세트의 critical secondary 디렉터리 엔트리임. File 디렉터리 엔트리 세트의 유효한 File Name 디렉터리 엔트리 수는 NameLength / 15를 가장 가까운 정수로 반올림한 값임. 또한 File Name 디렉터리 엔트리들은 Stream Extension 디렉터리 엔트리 바로 다음에 연속적인 시리즈로 오는 경우에만 유효함.
+
+**File Name DirectoryEntry Structure**
+
+| 필드 이름 | 오프셋(바이트) | 크기(바이트) | 설명 |
+|-------|---------------|-------------|------|
+| EntryType | 0 | 1 | 필수 필드, 내용은 섹션 7.7.1에서 정의 |
+| GeneralSecondaryFlags | 1 | 1 | 필수 필드, 내용은 섹션 7.7.2에서 정의 |
+| FileName | 2 | 30 | 필수 필드, 내용은 섹션 7.7.3에서 정의 |
+
+#### FileName 필드
+파일 이름의 일부인 Unicode 문자열을 포함함. File 디렉터리 엔트리 세트에 File Name 디렉터리 엔트리들이 존재하는 순서대로 FileName 필드들이 연결되어 File 디렉터리 엔트리 세트의 파일 이름을 형성함.
+
+연결된 파일 이름은 다른 FAT 기반 파일시스템과 같은 불법 문자 집합을 가짐. 사용되지 않는 FileName 필드의 문자들은 값 0000h로 설정해야 함.
+
+**무효한 FileName 문자들**
+- 제어 코드 (0000h~001Fh)
+- 따옴표 (0022h)
+- 별표 (002Ah)
+- 슬래시 (002Fh)
+- 콜론 (003Ah)
+- 부등호 (003Ch, 003Eh)
+- 물음표 (003Fh)
+- 백슬래시 (005Ch)
+- 수직 바 (007Ch)
+
+파일 이름 "."과 ".."는 각각 "이 디렉터리"와 "포함하는 디렉터리"의 특별한 의미를 가짐. 구현체들은 이러한 예약된 파일 이름 중 어떤 것도 FileName 필드에 기록해서는 안 됨.
+
+### Vendor Extension Directory Entry
+Vendor Extension 디렉터리 엔트리는 File 디렉터리 엔트리 세트의 benign secondary 디렉터리 엔트리임. File 디렉터리 엔트리 세트는 secondary 디렉터리 엔트리의 한계에서 다른 secondary 디렉터리 엔트리의 수를 뺀 만큼까지 임의의 수의 Vendor Extension 디렉터리 엔트리를 포함할 수 있음.
+
+Vendor Extension 디렉터리 엔트리들은 벤더들이 VendorGuid 필드를 통해 개별 File 디렉터리 엔트리 세트에 고유한 벤더별 디렉터리 엔트리를 가질 수 있게 함.
+
+### Vendor Allocation Directory Entry
+Vendor Allocation 디렉터리 엔트리는 File 디렉터리 엔트리 세트의 benign secondary 디렉터리 엔트리임. Vendor Extension과 유사하지만 연관된 클러스터들을 가질 수 있음.
+
+### TexFAT Padding Directory Entry
+이 사양인 exFAT 버전 1.00 파일시스템 기본 사양은 TexFAT Padding 디렉터리 엔트리를 정의하지 않음. 그러나 그 type code는 1이고 type importance는 1임. 이 사양의 구현체들은 TexFAT Padding 디렉터리 엔트리를 다른 인식되지 않는 benign primary 디렉터리 엔트리와 같이 처리해야 하며, 구현체들은 TexFAT Padding 디렉터리 엔트리를 이동시켜서는 안 됨.
