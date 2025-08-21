@@ -547,18 +547,6 @@ Generic Primary DirectoryEntry template을 해석하는 능력은 필수임.
 #### EntryType 필드
 Generic DirectoryEntry template에서 제공된 정의를 따름.[entry](#entrytype-필드)
 
-##### TypeCode 필드
-주어진 디렉터리 엔트리의 특정 타입을 부분적으로 설명함. 이 필드와 TypeImportance, TypeCategory 필드가 함께 주어진 디렉터리 엔트리의 타입을 고유하게 식별함.
-
-TypeImportance와 TypeCategory 필드가 모두 값 0을 포함하는 경우를 제외하고는 이 필드의 모든 가능한 값이 유효함; 그 경우 이 필드의 값 0은 무효임.
-
-##### TypeImportance 필드
-주어진 디렉터리 엔트리의 중요도를 설명함.
-
-유효한 값:
-- **0**: 주어진 디렉터리 엔트리가 중요함(critical)
-- **1**: 주어진 디렉터리 엔트리가 무해함(benign)
-
 ##### Critical Primary Directory Entries
 Critical primary 디렉터리 엔트리들은 exFAT 볼륨의 적절한 관리에 중요한 정보를 포함함. 루트 디렉터리만이 critical primary 디렉터리 엔트리들을 포함함(File 디렉터리 엔트리들은 예외).
 
@@ -796,14 +784,14 @@ Allocation Bitmap은 클러스터를 가장 낮은 인덱스부터 가장 높은
 
 **Allocation Bitmap Structure**
 
-| 필드 이름 | 오프셋(비트) | 크기(비트) | 설명 |
-|-------|---------------|-------------|------|
-| BitmapEntry[2] | 0 | 1 | 필수 필드, 내용은 섹션 7.1.5.1에서 정의 |
-| . | . | . | . |
-| . | . | . | . |
-| . | . | . | . |
-| BitmapEntry[ClusterCount+1] | ClusterCount - 1 | 1 | 필수 필드, 내용은 섹션 7.1.5.1에서 정의 |
-| Reserved | ClusterCount | (DataLength * 8) – ClusterCount | 필수 필드, 내용은 예약됨 |
+| 필드 이름 | 오프셋(비트) | 크기(비트) |
+|-------|---------------|-------------|
+| BitmapEntry[2] | 0 | 1 |
+| . | . | . |
+| . | . | . |
+| . | . | . |
+| BitmapEntry[ClusterCount+1] | ClusterCount - 1 | 1 |
+| Reserved | ClusterCount | (DataLength * 8) – ClusterCount |
 
 ##### BitmapEntry[2] ... BitmapEntry[ClusterCount+1] 필드들
 이 배열의 각 BitmapEntry 필드는 Cluster Heap의 클러스터를 나타냄. BitmapEntry[2]는 Cluster Heap의 첫 번째 클러스터를 나타내고 BitmapEntry[ClusterCount+1]은 Cluster Heap의 마지막 클러스터를 나타냄.
@@ -1013,3 +1001,292 @@ Vendor Allocation 디렉터리 엔트리는 File 디렉터리 엔트리 세트�
 
 ### TexFAT Padding Directory Entry
 이 사양인 exFAT 버전 1.00 파일시스템 기본 사양은 TexFAT Padding 디렉터리 엔트리를 정의하지 않음. 그러나 그 type code는 1이고 type importance는 1임. 이 사양의 구현체들은 TexFAT Padding 디렉터리 엔트리를 다른 인식되지 않는 benign primary 디렉터리 엔트리와 같이 처리해야 하며, 구현체들은 TexFAT Padding 디렉터리 엔트리를 이동시켜서는 안 됨.
+
+# Linux 커널 코드 분석
+```
+osvs@BoB:~/OSVS/OSVS_EventHorizon/lkl/fs/exfat$ tree
+.
+├── balloc.c
+├── balloc.o
+├── built-in.a
+├── cache.c
+├── cache.o
+├── dir.c
+├── dir.o
+├── exfat_fs.h
+├── exfat_raw.h
+├── fatent.c
+├── fatent.o
+├── file.c
+├── file.o
+├── inode.c
+├── inode.o
+├── Kconfig
+├── Makefile
+├── misc.c
+├── misc.o
+├── namei.c
+├── namei.o
+├── nls.c
+├── nls.o
+├── super.c
+└── super.o
+
+1 directory, 25 files
+osvs@BoB:~/OSVS/OSVS_EventHorizon/lkl/fs/exfat$ 
+```
+## 아이노드
+리눅스에서는 **VFS(Virtual File System)** 추상화 계층을 사용한다. VFS는 여러 파일 시스템을 동일한 방식으로 다룰 수 있게 해주는 일종의 **표준 인터페이스** 라고 볼 수도 있다. 클로드가 그린 구조는 다음과 같다. 
+```
+● 🏗️ Linux VFS 계층 구조
+  VFS 계층 구조
+
+  👤 사용자 프로그램
+      │
+      ├─ open(), read(), write()...
+      │
+  📋 VFS (Virtual File System)
+      │ ┌─────────────────────────────┐
+      │ │ 공통 아이노드 (struct inode) │ <- 표준 인터페이스
+      │ └─────────────────────────────┘
+      │
+  🔗 파일시스템별 구현체
+      │
+      ├─ ext4: ext4_inode_info        <- 확장
+      ├─ xfs:  xfs_inode              <- 확장
+      ├─ btrfs: btrfs_inode           <- 확장
+      └─ exFAT: exfat_inode_info      <- 확장
+           │
+      💾 실제 디스크 (exFAT 포맷)
+```
+
+`include/linux/fs.h`에 커널에서 일반적으로 사용하는 **inode** 구조체를 확인할 수 있다. inode는 파일의 메타데이터를 저장하는 데이터 구조로 파일 하나당 하나씩 존재하는 credential의 느낌 같다. 파일 이름과 실제 데이터는 저장하지 않는다. 
+```
+/*
+ * Keep mostly read-only and often accessed (especially for
+ * the RCU path lookup and 'stat' data) fields at the beginning
+ * of the 'struct inode'
+ */
+struct inode {
+	umode_t			i_mode;
+	unsigned short		i_opflags;
+	kuid_t			i_uid;
+	kgid_t			i_gid;
+	unsigned int		i_flags;
+...
+
+```
+
+이런식으로 구조체가 선언이 되어 있다. 주요 필드만 살펴보자면
+- umode_t i_mode: 파일 타입과 접근 권한
+- kuid_t i_uid: User ID
+- kgid_t i_gid: Group ID
+- loff_t i_sze: 파일 크기를 바이트 단위로
+- unsigned long i_ino; 필드에 이 inode의 **고유 번호** 를 저장함
+
+그리고 `fs/exfat/exfat_fs.h`에는 위의 inode 구조체를 확장한 구조체가 선언되어 있다. inode가 공통적으로 담지 않는 exFAT의 고유한 특징을 위해 필요한 필드를 포함하고 있다. 
+
+```
+/*
+ * EXFAT file system inode in-memory data
+ */
+struct exfat_inode_info {
+	/* the cluster where file dentry is located */
+	struct exfat_chain dir;
+	/* the index of file dentry in ->dir */
+	int entry;
+	unsigned int type;
+	unsigned short attr;
+	unsigned int start_clu;
+	unsigned char flags;
+	/*
+	 * the copy of low 32bit of i_version to check
+	 * the validation of hint_stat.
+	 */
+	unsigned int version;
+
+	/* hint for cluster last accessed */
+	struct exfat_hint hint_bmap;
+	/* hint for entry index we try to lookup next time */
+	struct exfat_hint hint_stat;
+	/* hint for first empty entry */
+	struct exfat_hint_femp hint_femp;
+
+	spinlock_t cache_lru_lock;
+	struct list_head cache_lru;
+	int nr_caches;
+	/* for avoiding the race between alloc and free */
+	unsigned int cache_valid_id;
+
+	/* on-disk position of directory entry or 0 */
+	loff_t i_pos;
+	loff_t valid_size;
+	/* hash by i_location */
+	struct hlist_node i_hash_fat;
+	/* protect bmap against truncate */
+	struct rw_semaphore truncate_lock;
+	struct inode vfs_inode;
+	/* File creation time */
+	struct timespec64 i_crtime;
+};
+```
+- **struct inode vfs_inode**: VFS가 사용하는 표준, 범용 inode로 모든 파일 시스템이 공통적으로 갖는 정보 포함
+- **struct exfat_inode_info**: exFAT 만의 고유한 특징을 담고 있음
+
+## 헤더파일 분석
+### exfat_raw.h
+**온디스크 포맷**, 즉 실제 디스크에 저장되는 데이터 구조를 정의하고 있다. `__paced` 속성으로 메모리 정렬 없이 정확한 바이트 레이아웃을 보장한다. 정적 상수들은 명세에 정의된 값들이다. 
+
+```
+#define BOOT_SIGNATURE		0xAA55
+#define EXBOOT_SIGNATURE	0xAA550000
+#define STR_EXFAT		"EXFAT   "	/* size should be 8 */
+
+#define EXFAT_MAX_FILE_LEN	255
+
+#define VOLUME_DIRTY		0x0002
+#define MEDIA_FAILURE		0x0004
+
+#define EXFAT_EOF_CLUSTER	0xFFFFFFFFu
+#define EXFAT_BAD_CLUSTER	0xFFFFFFF7u
+#define EXFAT_FREE_CLUSTER	0
+/* Cluster 0, 1 are reserved, the firs
+```
+- BOOT_SIGNATURE: 부트섹터 시그니처(마지막 2바이트)
+- EXBOOT_SIGNATURE: 확장 부트섹터 시그니처
+- STR_EXFAT: 파일시스템 이름 (8바이트 고정)
+- EXFAT_EOF_CLUSTER: **0xFFFFFFFFu** 클러스터 체인 끝
+- EXFAT_BAD_CLUSTER: **0xFFFFFFF7u** 손상된 클러스터
+- EXFAT_FREE_CLUSTER: 0, 빈 클러스터 
+
+```
+/* Cluster 0, 1 are reserved, the first cluster is 2 in the cluster heap. */
+#define EXFAT_RESERVED_CLUSTERS	2
+#define EXFAT_FIRST_CLUSTER	2
+#define EXFAT_DATA_CLUSTER_COUNT(sbi)	\
+	((sbi)->num_clusters - EXFAT_RESERVED_CLUSTERS)
+```
+- EXFAT_RESERVED_CLUSTERS, EXFAT_FIRST_CLUSTER => 실제로 쓰는 클러스터는 인덱스 2부터..
+- EXFAT_DATA_CLUSTER_COUNT: 실제 사용 가능한 데이터 클러스터 개수 계산(전체 클러스터 - 2)
+
+```
+/* AllocationPossible and NoFatChain field in GeneralSecondaryFlags Field */
+#define ALLOC_POSSIBLE		0x01
+#define ALLOC_FAT_CHAIN		0x01
+#define ALLOC_NO_FAT_CHAIN	0x03
+```
+**스트림 엔트리** 의 flags 필드
+| 필드 이름 | 오프셋(비트) | 크기(비트) |
+|-------|---------------|-------------|
+| AllocationPossible | 0 | 1 |
+| NoFatChain | 1 | 1 |
+| CustomDefined | 2 | 14 |
+
+- 0x1: 0001, FAT 엔트리 유효 + 반드시 해석 필요 + FAT 테이블 순회해서 다음 클러스터 찾기.
+- 0x3: 0011, FAT 엔트리 무효화 + 클러스터 연결해서 순차적 할당. 
+
+```
+static void exfat_init_stream_entry(struct exfat_dentry *ep,
+		unsigned int start_clu, unsigned long long size)
+{
+	memset(ep, 0, sizeof(*ep));
+	exfat_set_entry_type(ep, TYPE_STREAM);
+	if (size == 0)
+		ep->dentry.stream.flags = ALLOC_FAT_CHAIN;
+	else
+		ep->dentry.stream.flags = ALLOC_NO_FAT_CHAIN;
+	ep->dentry.stream.start_clu = cpu_to_le32(start_clu);
+	ep->dentry.stream.valid_size = cpu_to_le64(size);
+	ep->dentry.stream.size = cpu_to_le64(size);
+}
+```
+위 코드는 `Stream Extension Directory Entry`를 초기화하는 함수이다. 엔트리 타입을 **0xC0(TYPE_STREAM)** 으로 설정해주고 파일 크기에 따라서 FAT 사용 여부를 결정하고 있다. 크기가 0이 아니라면 연속 할당을 기본적으로 사용하고 있다.
+
+```
+#define DENTRY_SIZE		32 /* directory entry size */
+#define DENTRY_SIZE_BITS	5
+```
+- DENTRY_SIZE: 모든 디렉터리 엔트리는 정확히 32바이트 고정
+- DENTRY_SIZE_BITS: 2^5 = 32. 빠른 계산을 위한 헬퍼라고 보면 될 듯
+
+```
+/* dentry types */
+#define EXFAT_UNUSED		0x00	/* end of directory */
+#define EXFAT_DELETE		(~0x80)
+#define IS_EXFAT_DELETED(x)	((x) < 0x80) /* deleted file (0x01~0x7F) */
+#define EXFAT_INVAL		0x80	/* invalid value */
+#define EXFAT_BITMAP		0x81	/* allocation bitmap */
+#define EXFAT_UPCASE		0x82	/* upcase table */
+#define EXFAT_VOLUME		0x83	/* volume label */
+#define EXFAT_FILE		0x85	/* file or dir */
+#define EXFAT_GUID		0xA0
+#define EXFAT_PADDING		0xA1
+#define EXFAT_ACLTAB		0xA2
+#define EXFAT_STREAM		0xC0	/* stream entry */
+#define EXFAT_NAME		0xC1	/* file name entry */
+#define EXFAT_ACL		0xC2	/* stream entry */
+#define EXFAT_VENDOR_EXT	0xE0	/* vendor extension entry */
+#define EXFAT_VENDOR_ALLOC	0xE1	/* vendor allocation entry */
+
+#define IS_EXFAT_CRITICAL_PRI(x)	(x < 0xA0)
+#define IS_EXFAT_BENIGN_PRI(x)		(x < 0xC0)
+#define IS_EXFAT_CRITICAL_SEC(x)	(x < 0xE0)
+```
+exFAT 디렉터리 엔트리의 타입 분류 체계를 정의해주고 있다. **EntryType** 필드에 들어가는 값들이다. [1](#entrytype-필드). 처음 한바이트를 보고 바로 어떤 디렉터리 엔트리인지 구분할 수 있도록 해둔 상수들이다. 아래와 같이 분류할 수 있다.
+- 0x81-0x9F: Critical Primary (필수 주 엔트리)
+- 0xA0-0xBF: Benign Primary (선택적 주 엔트리)
+- 0xC0-0xDF: Critical Secondary (필수 부 엔트리)
+- 0xE0-0xFF: Benign Secondary (선택적 부 엔트리)
+
+```
+/* checksum types */
+#define CS_DIR_ENTRY		0
+#define CS_BOOT_SECTOR		1
+#define CS_DEFAULT		2
+```
+체크섬 계산 알고리즘의 타입을 구분하는 부분이다. `디렉터리`, `부트 섹터`, `기본, 기타` 체크섬 계산 방식에 구분을 두기 위한 상수이다.
+
+```
+/* file attributes */
+#define EXFAT_ATTR_READONLY	0x0001
+#define EXFAT_ATTR_HIDDEN	0x0002
+#define EXFAT_ATTR_SYSTEM	0x0004
+#define EXFAT_ATTR_VOLUME	0x0008
+#define EXFAT_ATTR_SUBDIR	0x0010
+#define EXFAT_ATTR_ARCHIVE	0x0020
+
+#define EXFAT_ATTR_RWMASK	(EXFAT_ATTR_HIDDEN | EXFAT_ATTR_SYSTEM | \
+				 EXFAT_ATTR_VOLUME | EXFAT_ATTR_SUBDIR | \
+				 EXFAT_ATTR_ARCHIVE)
+```
+`FILE` 엔트리의 **attr** 필드에서 사용됨. 파일 속성 플래그들을 정의하고 있다. **EXFAT_ATTR_RWMASK** 는 READONLY를 별도로 처리하려고 만든 마스크 같다. 
+
+## super.c 분석
+### init_exfat_fs
+`insmod exfat.ko`나 커널이 부팅될 때 실행되는 함수로, exFAT 파일 시스템을 Linux VFS에 등록
+```
+module_init(init_exfat_fs);
+```
+#### 1. 캐시 초기화
+```
+err = exfat_cache_init();
+if (err)
+	return err;
+```
+`cache.c`에 정의된 함수를 호출하여 exFAT 클러스터 캐시 시스템을 초기화해준다. 그런데 위에서 확인한 exFAT 명세에는 캐시에 대한 언급이 없었는데 캐시를 초기화하고 있어 cache.c도 잠깐 분석해보았다. 
+
+```
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ *  linux/fs/fat/cache.c
+ *
+ *  Written 1992,1993 by Werner Almesberger
+ *
+ *  Mar 1999. AV. Changed cache, so that it uses the starting cluster instead
+ *	of inode number.
+ *  May 1999. AV. Fixed the bogosity with FAT32 (read "FAT28"). Fscking lusers.
+ *  Copyright (C) 2012-2013 Samsung Electronics Co., Ltd.
+ */
+ ```
+fat 코드를 수정해서 사용하고 있었다. 
+
