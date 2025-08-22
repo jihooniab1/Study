@@ -5,6 +5,15 @@ https://github.com/torvalds/linux/tree/master/fs/exfat
 
 이 곳에서 구현되어 있는 exFAT 코드를 분석하고, 이해를 해보자..
 
+# Index
+- [1. Microsoft exFAT spec](#microsoft-exfat-specification)
+- [2. Linux Kernel Analyze](#linux-커널-코드-분석)
+    - [2.1 Inode](#아이노드)
+    - [2.2 Header files](#헤더파일-분석)
+        - [2.2.1 exfat_raw.h](#exfat_rawh)
+        - [2.2.2 exfat_fs.h](#exfat_fsh)
+    - [2.3 super.c](#superc-분석)
+
 # Microsoft exFAT specification
 |   이름 | 오프셋(sector) | 크기(sector) | 링크 |
 |-------|---------------|-------------|-----|
@@ -1135,7 +1144,7 @@ struct exfat_inode_info {
 
 ## 헤더파일 분석
 ### exfat_raw.h
-**온디스크 포맷**, 즉 실제 디스크에 저장되는 데이터 구조를 정의하고 있다. `__paced` 속성으로 메모리 정렬 없이 정확한 바이트 레이아웃을 보장한다. 정적 상수들은 명세에 정의된 값들이다. 
+**온디스크 포맷**, 즉 실제 디스크에 저장되는 데이터 구조를 정의하고 있다. `__packed` 속성으로 메모리 정렬 없이 정확한 바이트 레이아웃을 보장한다. 정적 상수들은 명세에 정의된 값들이다. 
 
 ```
 #define BOOT_SIGNATURE		0xAA55
@@ -1261,13 +1270,219 @@ exFAT 디렉터리 엔트리의 타입 분류 체계를 정의해주고 있다. 
 ```
 `FILE` 엔트리의 **attr** 필드에서 사용됨. 파일 속성 플래그들을 정의하고 있다. **EXFAT_ATTR_RWMASK** 는 READONLY를 별도로 처리하려고 만든 마스크 같다. 
 
+```
+#define BOOTSEC_JUMP_BOOT_LEN		3
+#define BOOTSEC_FS_NAME_LEN		8
+#define BOOTSEC_OLDBPB_LEN		53
+
+#define EXFAT_FILE_NAME_LEN		15
+
+#define EXFAT_MIN_SECT_SIZE_BITS		9
+#define EXFAT_MAX_SECT_SIZE_BITS		12
+#define EXFAT_MAX_SECT_PER_CLUS_BITS(x)		(25 - (x)->sect_size_bits)
+```
+- BOOTSEC_JUMP_BOOT_LEN: 점프 명령어는 3바이트
+- BOOTSEC_FS_NAME_LEN: `EXFAT  ` 문자열은 8바이트
+- BOOTSEC_OLDBPB_LEN: 이전 FAT 호환 영역 53바이트
+- EXFAT_FILE_NAME_LEN: **NAME 엔트리** 당 문자 수 15개(30바이트)
+- EXFAT_MIN/MAX_SECT_SIZE_BITS: 섹터 크기 최소 512, 최대 4096
+- EXFAT_MAX_SECT_PER_CLUS_BITS(x): 클러스터 당 섹터 수 제한
+
+```
+/* EXFAT: Main and Backup Boot Sector (512 bytes) */
+struct boot_sector {
+	__u8	jmp_boot[BOOTSEC_JUMP_BOOT_LEN];
+	__u8	fs_name[BOOTSEC_FS_NAME_LEN];
+	__u8	must_be_zero[BOOTSEC_OLDBPB_LEN];
+	__le64	partition_offset;
+	__le64	vol_length;
+	__le32	fat_offset;
+	__le32	fat_length;
+	__le32	clu_offset;
+	__le32	clu_count;
+	__le32	root_cluster;
+	__le32	vol_serial;
+	__u8	fs_revision[2];
+	__le16	vol_flags;
+	__u8	sect_size_bits;
+	__u8	sect_per_clus_bits;
+	__u8	num_fats;
+	__u8	drv_sel;
+	__u8	percent_in_use;
+	__u8	reserved[7];
+	__u8	boot_code[390];
+	__le16	signature;
+} __packed;
+```
+**BOOT SECTOR** 레이아웃을 정의하고 있음. `__le64`, `__le32`, `__le16`은 리틀 엔디안 64/32/16비트 정수를 의미
+
+```
+struct exfat_dentry {
+	__u8 type;
+	union {
+		struct {
+			__u8 num_ext;
+			__le16 checksum;
+			__le16 attr;
+			__le16 reserved1;
+			__le16 create_time;
+			__le16 create_date;
+			__le16 modify_time;
+			__le16 modify_date;
+			__le16 access_time;
+			__le16 access_date;
+			__u8 create_time_cs;
+			__u8 modify_time_cs;
+			__u8 create_tz;
+			__u8 modify_tz;
+			__u8 access_tz;
+			__u8 reserved2[7];
+		} __packed file; /* file directory entry */
+		struct {
+			__u8 flags;
+			__u8 reserved1;
+			__u8 name_len;
+			__le16 name_hash;
+			__le16 reserved2;
+			__le64 valid_size;
+			__le32 reserved3;
+			__le32 start_clu;
+			__le64 size;
+		} __packed stream; /* stream extension directory entry */
+		struct {
+			__u8 flags;
+			__le16 unicode_0_14[EXFAT_FILE_NAME_LEN];
+		} __packed name; /* file name directory entry */
+		struct {
+			__u8 flags;
+			__u8 reserved[18];
+			__le32 start_clu;
+			__le64 size;
+		} __packed bitmap; /* allocation bitmap directory entry */
+		struct {
+			__u8 reserved1[3];
+			__le32 checksum;
+			__u8 reserved2[12];
+			__le32 start_clu;
+			__le64 size;
+		} __packed upcase; /* up-case table directory entry */
+		struct {
+			__u8 flags;
+			__u8 vendor_guid[16];
+			__u8 vendor_defined[14];
+		} __packed vendor_ext; /* vendor extension directory entry */
+		struct {
+			__u8 flags;
+			__u8 vendor_guid[16];
+			__u8 vendor_defined[2];
+			__le32 start_clu;
+			__le64 size;
+		} __packed vendor_alloc; /* vendor allocation directory entry */
+		struct {
+			__u8 flags;
+			__u8 custom_defined[18];
+			__le32 start_clu;
+			__le64 size;
+		} __packed generic_secondary; /* generic secondary directory entry */
+	} __packed dentry;
+} __packed;
+```
+커널에서 사용하는 모든 디렉터리 엔트리 타입을 정의하고 있음.
+**Primary Entries**
+- file: 파일/디렉터리 엔트리 (type: 0x85)
+- bitmap: allocation bitmap 엔트리 (type: 0x81)
+- upcase: upcase table 엔트리 (type: 0x82)
+- vendor_ext: 벤더 확장 엔트리 (type: 0xE0)
+
+**Secondary Entries**
+- stream: stream extension 엔트리 (type: 0xC0) - 파일 크기, 시작 클러스터 정보
+- name: 파일 이름 엔트리 (type: 0xC1) - 파일명을 유니코드로
+- vendor_alloc: 벤더 할당 엔트리 (type: 0xE1)
+- generic_secondary: 일반 보조 엔트리
+
+### exfat_fs.h
+리눅스 커널이 exFAT을 처리하기 위해 필요한 메모리 구조체들을 정의하고 있음. 
+
+```
+/*
+ * EXFAT file system superblock in-memory data
+ */
+struct exfat_sb_info {
+	unsigned long long num_sectors; /* num of sectors in volume */
+	unsigned int num_clusters; /* num of clusters in volume */
+	unsigned int cluster_size; /* cluster size in bytes */
+	unsigned int cluster_size_bits;
+	unsigned int sect_per_clus; /* cluster size in sectors */
+	unsigned int sect_per_clus_bits;
+	unsigned long long FAT1_start_sector; /* FAT1 start sector */
+	unsigned long long FAT2_start_sector; /* FAT2 start sector */
+	unsigned long long data_start_sector; /* data area start sector */
+	unsigned int num_FAT_sectors; /* num of FAT sectors */
+	unsigned int root_dir; /* root dir cluster */
+	unsigned int dentries_per_clu; /* num of dentries per cluster */
+	unsigned int vol_flags; /* volume flags */
+	unsigned int vol_flags_persistent; /* volume flags to retain */
+	struct buffer_head *boot_bh; /* buffer_head of BOOT sector */
+
+	unsigned int map_clu; /* allocation bitmap start cluster */
+	unsigned int map_sectors; /* num of allocation bitmap sectors */
+	struct buffer_head **vol_amap; /* allocation bitmap */
+
+	unsigned short *vol_utbl; /* upcase table */
+
+	unsigned int clu_srch_ptr; /* cluster search pointer */
+	unsigned int used_clusters; /* number of used clusters */
+
+	unsigned long s_exfat_flags; /* Exfat superblock flags */
+
+	struct mutex s_lock; /* superblock lock */
+	struct mutex bitmap_lock; /* bitmap lock */
+	struct exfat_mount_options options;
+	struct nls_table *nls_io; /* Charset used for input and display */
+	struct ratelimit_state ratelimit;
+
+	spinlock_t inode_hash_lock;
+	struct hlist_head inode_hashtable[EXFAT_HASH_SIZE];
+	struct rcu_head rcu;
+};
+```
+먼저 **super block** 을 알아보자. 리눅스 커널 VFS에서 사용하는 용어로 마운트된 파일 시스템의 전체 정보를 담는 메모리 구조체라고 보면 될 거 같다. 즉, 부트 섹터를 파싱한 정보를 커널이 쓰기 편하게 재구성한 구조체라고 할 수 있다. 일부 필드만 알아보도록 하겠다. 
+
+#### 볼륨 기본 정보
+- num_sectors: 전체 볼륨의 섹터 수
+- num_clusters: 전체 클러스터 수
+- cluster_size: 클러스터의 크기 (바이트 단위)
+- cluster_size_bits: 클러스터 크기의 비트 쉬프트 값
+- sect_per_clus: 클러스터 당 섹터 수
+- sect_per_clus_bits: 클러스터 당 섹터 수의 비트 쉬프트 값
+
+#### 영역별 시작 위치
+- FAT1_start_sector: First FAT 테이블 시작 섹터
+- FAT2_start_sector: Second FAT 테이블 시작 섹터 (백업)
+- data_start_sector: 실제 데이터 영역 시작 섹터
+- num_FAT_sectors: FAT 테이블 크기 (섹터 단위)
+
+#### 루트 디렉터리 및 엔트리
+- root_dir: 루트 디렉터리의 클러스터 번호
+- dentries_per_clu: 클러스터 당 디렉터리 엔트리 개수
+- vol_flags: 현재 볼륨 플래그
+- vol_flags_persistent: 유지해야 할 볼륨 플래그
+
+#### Allocation Bitmap
+- map_clu: Allocation Bitmap이 저장된 시작 클러스터
+- map_sectors: Allocation Bitmap의 섹터 수
+- **vol_amap: Allocation Bitmap의 버퍼 배열
+
+#### Up case table
+- *vol_utbl: 업케이스 테이블의 메모리 상 위치
+
 ## super.c 분석
 ### init_exfat_fs
 `insmod exfat.ko`나 커널이 부팅될 때 실행되는 함수로, exFAT 파일 시스템을 Linux VFS에 등록
 ```
 module_init(init_exfat_fs);
 ```
-#### 1. 캐시 초기화
+#### 1. 클러스터 캐시 초기화
 ```
 err = exfat_cache_init();
 if (err)
@@ -1288,5 +1503,131 @@ if (err)
  *  Copyright (C) 2012-2013 Samsung Electronics Co., Ltd.
  */
  ```
-fat 코드를 수정해서 사용하고 있었다. 
+fat 코드를 수정해서 사용하고 있었다. 이 코드들은 exFAT 명세에는 없지만 커널의 성능 최적화를 위한 구현이다. exFAT에서 각종 데이터는 클러스터 체인으로 저장이 되는데, FAT를 따라서 선형 탐색으로 찾아야 하는 구조여서 매번 디스크 I/O가 발생하게 된다. 
+
+```
+struct exfat_cache {
+	struct list_head cache_list;
+	unsigned int nr_contig;	/* number of contiguous clusters */
+	unsigned int fcluster;	/* cluster number in the file. */
+	unsigned int dcluster;	/* cluster number on disk. */
+};
+```
+**exfat_cache** 구조체는 위와 같다. 하나씩 살펴보자
+- list_head cache_list: 캐시 엔트리들을 연결하기 위한 **연결 리스트 포인터** 이다. 이 포인터를 통해 여러 `exfat_cache` 구조체들이 연결되어 **LRU** 방식으로 관리가 된다.
+- fcluster: 파일 내의 **논리적인 클러스터 시작 번호**. 파일의 관점에서 본 데이터 블록의 순번이다. 
+- dcluster: 디스크 상에서의 **물리적인 클러스터 시작 번호**. fcluster가 100이고 dcluster가 5000이면, 파일의 101번째 데이터 블록이 디스크의 5001 번째 슬롯에 있다는 뜻
+- nr_contig: fcluster부터 시작되는 **연속 할당된 클러스터 개수**. exFAT은 많은 경우 여러 클러스터를 붙여서 연속 할당을 하는데, 캐시에서 이를 반영한 것 같다. 
+
+```
+int exfat_cache_init(void)
+{
+	exfat_cachep = kmem_cache_create("exfat_cache",
+				sizeof(struct exfat_cache),
+				0, SLAB_RECLAIM_ACCOUNT,
+				exfat_cache_init_once);
+	if (!exfat_cachep)
+		return -ENOMEM;
+	return 0;
+}
+```
+
+exFAT 캐시 시스템 전체가 사용할 공간(**전용 메모리 풀**)을 마련하는 작업을 해주고 있다. kmalloc과 다르게 kmem_cache_create의 경우 이미 `exfat_cache` 구조체의 크기에 맞는 공간들을 마련해두고 있어서, 탐색 과정 없이 빠르게 할당과 해제를 할 수 있다는 점에서 특징을 갖는 것 같다. 또한 전용 풀에서 할당한 exfat_cache 객체들은 물리적 메모리 상으로도 가깝게 있을 확률이 높아, 한번 캐시에 올라오면 다른 객체들도 캐시에 올라와 있을 확률이 높다. 
+
+#### 2. 아이노드 캐시 초기화
+```
+exfat_inode_cachep = kmem_cache_create("exfat_inode_cache",
+			sizeof(struct exfat_inode_info),
+			0, SLAB_RECLAIM_ACCOUNT,
+			exfat_inode_init_once);
+if (!exfat_inode_cachep) {
+	err = -ENOMEM;
+	goto shutdown_cache;
+}
+```
+
+아까 클러스터 캐시랑 다르게 이건 전체 exFAT 파일 시스템에서 공유하는 메모리 풀로 **exfat inode** 를 아래와 같이 빠르게 할당하고 해제하기 위해 사용하는 캐시이다. 참고로 클러스터 캐시는 `struct exfat_inode_info`에서 확인할 수 있다.
+```
+static struct inode *exfat_alloc_inode(struct super_block *sb)
+{
+	struct exfat_inode_info *ei;
+
+	ei = alloc_inode_sb(sb, exfat_inode_cachep, GFP_NOFS);
+	if (!ei)
+		return NULL;
+
+	init_rwsem(&ei->truncate_lock);
+	return &ei->vfs_inode;
+}
+
+static void exfat_free_inode(struct inode *inode)
+{
+	kmem_cache_free(exfat_inode_cachep, EXFAT_I(inode));
+}
+```
+
+#### 3. 파일 시스템 등록
+```
+err = register_filesystem(&exfat_fs_type);
+if (err)
+	goto destroy_cache;
+```
+VFS에 exFAT 파일 시스템을 등록하는 과정이다.
+
+### exfat_init_fs_context
+파일 시스템을 초기화하고 VFS에 exFAT 타입을 등록하였다. 이제 디스크 마운트를 해보자
+
+```
+mount -t exfat /dev/sdb1 /mnt/usb
+```
+이런 커맨드가 호출이 된다고 하자. VFS 레벨에서는 `exFAT` 타입을 찾고, 새로운 fs_context 구조체를 만든 다음에 **exfat_fs_type.init_fs_context** 를 호출한다. 
+
+```
+sbi = kzalloc(sizeof(struct exfat_sb_info), GFP_KERNEL);
+if (!sbi)
+    return -ENOMEM;
+```
+- kzalloc: 커널 메모리를 할당하고 0으로 초기화
+- GFP_KERNEL: 슬립 가능한 일반 커널 메모리
+커널에서 사용할 수 있도록 exFAT의 메타데이터를 담을 슈퍼 블록 구조체를 할당, 초기화하고 있다.
+
+```
+mutex_init(&sbi->s_lock);
+mutex_init(&sbi->bitmap_lock);
+ratelimit_state_init(&sbi->ratelimit, DEFAULT_RATELIMIT_INTERVAL,
+		DEFAULT_RATELIMIT_BURST);
+```
+- s_lock: 슈퍼블록 보호 뮤텍스
+- bitmap_lock: 클러스터를 할당하고 해제할 때 bitmap을 보호하는 뮤텍스이다.
+
+```
+sbi->options.fs_uid = current_uid();
+sbi->options.fs_gid = current_gid();
+sbi->options.fs_fmask = current->fs->umask;
+sbi->options.fs_dmask = current->fs->umask;
+sbi->options.allow_utime = -1;
+sbi->options.iocharset = exfat_default_iocharset;
+sbi->options.errors = EXFAT_ERRORS_RO;
+```
+기본 마운트 옵션을 설정하고 있다. 현재 마운트하는 사용자의 UID/GID, 현재 프로세스의 umask 값 등을 부여하고 있다.
+
+```
+fc->s_fs_info = sbi;
+fc->ops = &exfat_context_ops;
+```
+- fc->s_fs_info=sbi: 파일 시스템 컨텍스트에 sbi를 연결
+- fc->ops = &exfat_context_ops: 다음 단계 함수들을 설정해주고 있다.
+
+```
+static const struct fs_context_operations exfat_context_ops = {
+	.parse_param	= exfat_parse_param,
+	.get_tree	= exfat_get_tree,
+	.free		= exfat_free,
+	.reconfigure	= exfat_reconfigure,
+};
+```
+- exfat_parse_param: 마운트 옵션 파싱
+- exfat_get_tree: 실제 마운트 수행
+- exfat_free: 컨텍스트 해제
+- exfat_reconfigure: 재마운트
 
