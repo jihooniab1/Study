@@ -12,7 +12,7 @@ https://github.com/torvalds/linux/tree/master/fs/exfat
     - [2.2 Header files](#헤더파일-분석)
         - [2.2.1 exfat_raw.h](#exfat_rawh)
         - [2.2.2 exfat_fs.h](#exfat_fsh)
-    - [2.3 super.c](#superc-분석)
+    - [2.3 exFAT init, disk mount](#파일-시스템-초기화-및-디스크-마운트)
 
 # Microsoft exFAT specification
 |   이름 | 오프셋(sector) | 크기(sector) | 링크 |
@@ -22,7 +22,7 @@ https://github.com/torvalds/linux/tree/master/fs/exfat
 | Main Extended Boot Sectors | 1 | 8 |  [2](#main-and-backup-extended-boot-sectors-sub-regions)  |
 | Main OEM Parameters | 9 | 1 |  [3](#main-and-backup-oem-parameters-sub-regions)  |
 | Main Reserved | 10 | 1 |    |
-| Main Boot Checksum | 9 | 1 |  [4](#main-and-backup-boot-checksum-sub-regions)  |
+| Main Boot Checksum | 11 | 1 |  [4](#main-and-backup-boot-checksum-sub-regions)  |
 | **Backup Boot Region** |  |  |   |
 | Backup Boot Sector | 12 | 1 |    |
 | Backup Extended Boot Sectors | 13 | 8 |    |
@@ -1476,7 +1476,7 @@ struct exfat_sb_info {
 #### Up case table
 - *vol_utbl: 업케이스 테이블의 메모리 상 위치
 
-## super.c 분석
+## 파일 시스템 초기화 및 디스크 마운트
 ### init_exfat_fs
 `insmod exfat.ko`나 커널이 부팅될 때 실행되는 함수로, exFAT 파일 시스템을 Linux VFS에 등록
 ```
@@ -1631,3 +1631,539 @@ static const struct fs_context_operations exfat_context_ops = {
 - exfat_free: 컨텍스트 해제
 - exfat_reconfigure: 재마운트
 
+### exfat_parse_param
+아까 봤던 exfat_fs.h에는 마운트 옵션을 담기 위한 구조체가 있다.
+```
+/*
+ * exfat mount in-memory data
+ */
+struct exfat_mount_options {
+	kuid_t fs_uid;
+	kgid_t fs_gid;
+	unsigned short fs_fmask;
+	unsigned short fs_dmask;
+	/* permission for setting the [am]time */
+	unsigned short allow_utime;
+	/* charset for filename input/display */
+	char *iocharset;
+	/* on error: continue, panic, remount-ro */
+	enum exfat_error_mode errors;
+	unsigned utf8:1, /* Use of UTF-8 character set */
+		 sys_tz:1, /* Use local timezone */
+		 discard:1, /* Issue discard requests on deletions */
+		 keep_last_dots:1; /* Keep trailing periods in paths */
+	int time_offset; /* Offset of timestamps from UTC (in minutes) */
+	/* Support creating zero-size directory, default: false */
+	bool zero_size_dir;
+};
+```
+exfat_parse_param 함수는 사용자가 지정한 마운트 옵션을 이 구조체에 저장하고, 실제 마운트에서 사용한다. 사용자가 따로 지정해주지 않으면 아까 기본적으로 넣어준 옵션을 그대로 사용하는 것 같다. 
+
+### exfat_get_tree
+```
+static int exfat_get_tree(struct fs_context *fc)
+{
+	return get_tree_bdev(fc, exfat_fill_super);
+}
+```
+생각보다 단순하게 생겼다. exFAT은 파일시스템별 로직만 제공하고 복잡한 과정은 VFS에서 처리하기 때문이다. 
+- get_tree_bdev: VFS의 **블록 디바이스용 공통 마운트 함수**. 블록 디바이스는 HDD, SSD 같은 물리 저장매체라고 보면 될 거 같다. 
+
+### get_tree_bdev
+```
+/**
+ * get_tree_bdev - Get a superblock based on a single block device
+ * @fc: The filesystem context holding the parameters
+ * @fill_super: Helper to initialise a new superblock
+ */
+int get_tree_bdev(struct fs_context *fc,
+		int (*fill_super)(struct super_block *,
+				  struct fs_context *))
+{
+	return get_tree_bdev_flags(fc, fill_super, 0);
+}
+EXPORT_SYMBOL(get_tree_bdev);
+```
+매개변수부터 보자
+- struct fs_context *fc: 파일 시스템 컨텍스트, 마운트에 필요한 정보 갖고 있음
+- fill_super: 함수 포인터, 파일 시스템별 초기화 함수가 전달되는데 exFAT은 **exfat_fill_super**
+
+```
+/*
+ * Filesystem context for holding the parameters used in the creation or
+ * reconfiguration of a superblock.
+ *
+ * Superblock creation fills in ->root whereas reconfiguration begins with this
+ * already set.
+ *
+ * See Documentation/filesystems/mount_api.rst
+ */
+struct fs_context {
+	const struct fs_context_operations *ops;
+	struct mutex		uapi_mutex;	/* Userspace access mutex */
+	struct file_system_type	*fs_type;
+	void			*fs_private;	/* The filesystem's context */
+	void			*sget_key;
+	struct dentry		*root;		/* The root and superblock */
+	struct user_namespace	*user_ns;	/* The user namespace for this mount */
+	struct net		*net_ns;	/* The network namespace for this mount */
+	const struct cred	*cred;		/* The mounter's credentials */
+	struct p_log		log;		/* Logging buffer */
+	const char		*source;	/* The source name (eg. dev path) */
+	void			*security;	/* LSM options */
+	void			*s_fs_info;	/* Proposed s_fs_info */
+	unsigned int		sb_flags;	/* Proposed superblock flags (SB_*) */
+	unsigned int		sb_flags_mask;	/* Superblock flags that were changed */
+	unsigned int		s_iflags;	/* OR'd with sb->s_iflags */
+	enum fs_context_purpose	purpose:8;
+	enum fs_context_phase	phase:8;	/* The phase the context is in */
+	bool			need_free:1;	/* Need to call ops->free() */
+	bool			global:1;	/* Goes into &init_user_ns */
+	bool			oldapi:1;	/* Coming from mount(2) */
+	bool			exclusive:1;    /* create new superblock, reject existing one */
+};
+```
+이게 `fs_context` 구조체다. 아까 봤었던 **fc->ops = &exfat_context_ops** 같은 할당들이 전부 fs_context 구조체를 업데이트 하는 과정이다. 필드 몇개만 살펴보자면
+- fs_context_operations *ops: 컨텍스트 연산 함수들
+- *s_fs_info: 슈퍼블록 데이터
+- struct cred *cred: 마운트 수행자의 credential
+- sb_flags: 슈퍼블록 플래그 
+이런 필드들이 있다.
+
+다시 함수로 돌아가서 get_tree_bdev 함수는 플래그를 0으로 고정하여 **get_tree_bdev_flags** 를 다시 호출해주고 있다. 단순한 wrapper의 기능을 하는 것으로 보인다.
+
+### get_tree_bdev_flags
+```
+if (!fc->source)
+	return invalf(fc, "No source specified");
+```
+- fc->source: `/dev/sdb1` 같은 디바이스 경로를 의미한다. 만약 경로가 없다면 바로 에러를 반환하는 로직이다.
+
+```
+error = lookup_bdev(fc->source, &dev);
+if (error) {
+	if (!(flags & GET_TREE_BDEV_QUIET_LOOKUP))
+		errorf(fc, "%s: Can't lookup blockdev", fc->source);
+	return error;
+}
+```
+디바이스 경로를 바탕으로 블록 디바이스를 찾는 과정이다. lookup_bdev 함수의 경우, 주어진 경로를 바탕으로 디바이스를 찾으면 **dev_t dev** 형태의 포인터를 반환한다. 
+
+```
+s = sget_dev(fc, dev);
+if (IS_ERR(s))
+	return PTR_ERR(s);
+```
+**sget_dev** 함수는 디바이스 번호를 바탕으로 기존 슈퍼 블록을 찾거나 새로 생성하는 함수다. 두 가지 경우가 있다.
+- 기존 슈퍼블록 검색: 기존에 있던 슈퍼블록을 반환하는 경우로, 이 블록은 이미 초기화가 완료된 상태라 **s->s_root != NULL** 이다. 
+- 새로운 슈퍼블록 생성: 새로운 슈퍼블록을 생성하는 경우로, 이 경우에는 **s->s_root == NULL** 이다. 
+
+```
+else {
+	error = setup_bdev_super(s, fc->sb_flags, fc);
+	if (!error)
+		error = fill_super(s, fc);
+	if (error) {
+		deactivate_locked_super(s);
+		return error;
+	}
+	s->s_flags |= SB_ACTIVE;
+}
+```
+새로운 슈퍼블록을 생성한 경우만 살펴보도록 하겠다. 생성된 슈퍼블록을 초기화하는 단계라고 보면 된다. 지금까지의 상황을 정리하면 아래와 같다. 
+1. exfat_init_fs_context: **exfat_sb_info** 메모리를 할당한다. 이 구조체는 exFAT 전용 메타데이터 구조체라고 보면 된다.
+2. exfat_get_tree
+3. get_tree_bdev_flags
+4. lookup_bdev: 여기서 `dev_t` 포인터를 반환해준다.
+5. sget_dev(fc, dev): 디바이스 번호를 바탕으로 슈퍼블록이 원래 만들어둔게 있는지, 새로 만들어야 하는지에 따라 슈퍼 블록을 반환한다.
+6. sget_fc: 새로운 슈퍼 블록 반환
+
+```
+if (!s) {
+	spin_unlock(&sb_lock);
+	s = alloc_super(fc->fs_type, fc->sb_flags, user_ns);
+	if (!s)
+		return ERR_PTR(-ENOMEM);
+	goto retry;
+}
+
+s->s_fs_info = fc->s_fs_info;
+```
+sget_fc 함수의 일부분인데, 새로운 슈퍼 블록을 만들어주는 경우이다. **s->s_fs_info = fc->s_sfs_info** 이 부분에서 새로 만든 슈퍼블록이랑 이전에 만들어뒀던 `exfat_sb_info`를 연결해주고 있다. 다시 setup_bdev_super로 돌아가자.
+
+### setup_bdev_super
+생성한 슈퍼블록과 실제 블록 디바이스를 연결하여 **I/O 가능한 상태** 로 만드는 과정이다. 
+
+```
+blk_mode_t mode = sb_open_mode(sb_flags);
+
+...
+
+/*
+ * Return the correct open flags for blkdev_get_by_* for super block flags
+ * as stored in sb->s_flags.
+ */
+#define sb_open_mode(flags) \
+	(BLK_OPEN_READ | BLK_OPEN_RESTRICT_WRITES | \
+	 (((flags) & SB_RDONLY) ? 0 : BLK_OPEN_WRITE))
+```
+- BLK_OPEN_READ, BLK_OPEN_RESTRICT_WRITES: 읽기 권한과 직접 쓰기 제한 플래그는 항상 포함된다. 후자는 아마 디바이스에 대한 직접 쓰기를 방지하려는 의도 같다.
+- 뒷 부분은 Readonly 여부에 따라 쓰기 플래그를 결정하고 있다
+
+```
+bdev_file = bdev_file_open_by_dev(sb->s_dev, mode, sb, &fs_holder_ops);
+if (IS_ERR(bdev_file)) {
+	if (fc)
+		errorf(fc, "%s: Can't open blockdev", fc->source);
+	return PTR_ERR(bdev_file);
+}
+bdev = file_bdev(bdev_file);
+```
+**bdev_file_open_by_dev**: 블록 디바이스를 파일 형태로 여는 함수다. **dev_t** 디바이스 번호로 블록 디바이스를 찾아서 파일 핸들을 반환한다. 
+```
+bdev_file = alloc_file_pseudo_noaccount(BD_INODE(bdev),
+			blockdev_mnt, "", flags | O_LARGEFILE, &def_blk_fops);
+```
+bdev_file은 실제 파일이 아닌 **가상 파일**, **메모리상 가상 객체** 이다. dev_t로 지정된 블록 디바이스에 파일 인터페이스로 접근할 수 있도록 만든 가상 파일 객체로 실제 물리 디바이스에 연결되어 있다고 생각하면 된다. `bdev`는 파일 객체에서 블록 디바이스 구조체를 추출한 것이다. 
+
+```
+sb->s_bdev_file = bdev_file;
+sb->s_bdev = bdev;
+sb->s_bdi = bdi_get(bdev->bd_disk->bdi);
+if (bdev_stable_writes(bdev))
+	sb->s_iflags |= SB_I_STABLE_WRITES;
+spin_unlock(&sb_lock);
+
+snprintf(sb->s_id, sizeof(sb->s_id), "%pg", bdev);
+shrinker_debugfs_rename(sb->s_shrink, "sb-%s:%s", sb->s_type->name,
+			sb->s_id);
+sb_set_blocksize(sb, block_size(bdev));
+```
+이제 슈퍼블록을 설정하는 마지막 단계다. 
+- s_bdev_file: 파일 인터페이스로 아까 얻은 **디바이스 파일 핸들** 을 저장
+- s_bdev: 블록 디바이스에 직접 접근하기 위한 필드로 블록 디바이스 구조체를 저장
+- s_bdi: I/O 최적화 정보, Backing device info를 설정
+- snprintf(sb->s_id, sizeof(sb->s_id), "%pg", bdev): 슈퍼블록 ID를 생성함
+
+이제 슈퍼블록이 실제 블록 디바이스와 완전히 연결이 되었다. 드디어 **fill_super** 함수를 호출할 차례이다. 
+
+### exfat_fill_super
+`exfat_fill_super(외부)`, `__exfat_fill_super(내부)` 두 함수가 있는데, 내부 함수에서 exFAT 특화된 로직을 처리해주고 있기에 내부 함수를 분석해보겠다.
+
+#### exfat_read_boot_sector
+```
+/* set block size to read super block */
+sb_min_blocksize(sb, 512);
+
+/* read boot sector */
+sbi->boot_bh = sb_bread(sb, 0);
+```
+부트 섹터는 **섹터 0** 에 있다. 최소 블록 크기 512바이트를 설정한 다음에 부트 섹터를 읽어들이는 과정이다. 
+
+```
+/* check the validity of BOOT */
+if (le16_to_cpu((p_boot->signature)) != BOOT_SIGNATURE) {
+	exfat_err(sb, "invalid boot record signature");
+	return -EINVAL;
+}
+
+if (memcmp(p_boot->fs_name, STR_EXFAT, BOOTSEC_FS_NAME_LEN)) {
+	exfat_err(sb, "invalid fs_name"); /* fs_name may unprintable */
+	return -EINVAL;
+}
+
+/*
+ * must_be_zero field must be filled with zero to prevent mounting
+ * from FAT volume.
+ */
+if (memchr_inv(p_boot->must_be_zero, 0, sizeof(p_boot->must_be_zero)))
+	return -EINVAL;
+
+if (p_boot->num_fats != 1 && p_boot->num_fats != 2) {
+	exfat_err(sb, "bogus number of FAT structure");
+	return -EINVAL;
+}
+
+/*
+ * sect_size_bits could be at least 9 and at most 12.
+ */
+if (p_boot->sect_size_bits < EXFAT_MIN_SECT_SIZE_BITS ||
+    p_boot->sect_size_bits > EXFAT_MAX_SECT_SIZE_BITS) {
+	exfat_err(sb, "bogus sector size bits : %u",
+			p_boot->sect_size_bits);
+	return -EINVAL;
+}
+
+/*
+ * sect_per_clus_bits could be at least 0 and at most 25 - sect_size_bits.
+ */
+if (p_boot->sect_per_clus_bits > EXFAT_MAX_SECT_PER_CLUS_BITS(p_boot)) {
+	exfat_err(sb, "bogus sectors bits per cluster : %u",
+			p_boot->sect_per_clus_bits);
+	return -EINVAL;
+}
+```
+- BOOT_SIGNATURE: 0xAA55 확인(**le16_to_cpu**: 16비트 리틀 엔디안 값을 CPU 바이트 순서로 변환)
+- fs_name: "EXFAT   " 문자열이 맞는지 확인
+- must_be_zero: 이 필드는 전부 0이여야 함
+- num_fats: exFAT은 1개 또는 2개의 FAT만 허용함. 1이나 2가 아니면 마운트 거부
+- sect_size_bits: 섹터 크기는 512KB~ 4MB
+- sect_per_clus_bits: 클러스터 당 섹터는 최대 25-`sec_size_bits`
+
+```
+sbi->sect_per_clus = 1 << p_boot->sect_per_clus_bits;
+sbi->sect_per_clus_bits = p_boot->sect_per_clus_bits;
+sbi->cluster_size_bits = p_boot->sect_per_clus_bits +
+	p_boot->sect_size_bits;
+sbi->cluster_size = 1 << sbi->cluster_size_bits;
+sbi->num_FAT_sectors = le32_to_cpu(p_boot->fat_length);
+sbi->FAT1_start_sector = le32_to_cpu(p_boot->fat_offset);
+sbi->FAT2_start_sector = le32_to_cpu(p_boot->fat_offset);
+if (p_boot->num_fats == 2)
+	sbi->FAT2_start_sector += sbi->num_FAT_sectors;
+sbi->data_start_sector = le32_to_cpu(p_boot->clu_offset);
+sbi->num_sectors = le64_to_cpu(p_boot->vol_length);
+/* because the cluster index starts with 2 */
+sbi->num_clusters = le32_to_cpu(p_boot->clu_count) +
+	EXFAT_RESERVED_CLUSTERS;
+
+sbi->root_dir = le32_to_cpu(p_boot->root_cluster);
+sbi->dentries_per_clu = 1 <<
+	(sbi->cluster_size_bits - DENTRY_SIZE_BITS);
+
+sbi->vol_flags = le16_to_cpu(p_boot->vol_flags);
+sbi->vol_flags_persistent = sbi->vol_flags & (VOLUME_DIRTY | MEDIA_FAILURE);
+sbi->clu_srch_ptr = EXFAT_FIRST_CLUSTER;
+```
+
+| 필드 이름 | 오프셋(바이트) | 크기(바이트) |
+|-------|---------------|-------------|
+| JumpBoot | 0 | 3 |
+| FileSystemName | 3 | 8 |
+| MustBeZero | 11 | 53 |
+| PartitionOffset | 64 | 8 |
+| VolumeLength | 72 | 8 |
+| FatOffset | 80 | 4 |
+| FatLength | 84 | 4 |
+| ClusterHeapOffset | 88 | 4 |
+| ClusterCount | 92 | 4 |
+| FirstClusterOfRootDirectory | 96 | 4 |
+| VolumeSerialNumber | 100 | 4 |
+| FileSystemRevision | 104 | 2 |
+| VolumeFlags | 106 | 2 |
+| BytesPerSectorShift | 108 | 1 |
+| SectorsPerClusterShift | 109 | 1 |
+| NumberOfFats | 110 | 1 |
+| DriveSelect | 111 | 1 |
+| PercentInUse | 112 | 1 |
+| Reserved | 113 | 7 |
+| BootCode | 120 | 390 |
+| BootSignature | 510 | 2 |
+| ExcessSpace | 512 | 2BytesPerSectorShift – 512 |
+
+- **sbi->sect_per_clus**: `SectorsPerClusterShift`를 이용해서 계산 (1 << bits)
+- **sbi->sect_per_clus_bits**: `SectorsPerClusterShift`를 그대로 복사
+- **sbi->cluster_size_bits**: `BytesPerSectorShift + SectorsPerClusterShift` 계산
+- **sbi->cluster_size**: `cluster_size_bits`를 이용해서 계산 (1 << bits)
+
+- **sbi->num_FAT_sectors**: `FatLength`를 LE 변환해서 복사
+- **sbi->FAT1_start_sector**: `FatOffset`을 LE 변환해서 복사
+- **sbi->FAT2_start_sector**: `FatOffset + (NumberOfFats==2 ? FatLength : 0)` 조건부 계산
+
+- **sbi->data_start_sector**: `ClusterHeapOffset`을 LE 변환해서 복사
+- **sbi->num_sectors**: `VolumeLength`를 LE 변환해서 복사
+- **sbi->num_clusters**: `ClusterCount + EXFAT_RESERVED_CLUSTERS(2)` 계산
+
+- **sbi->root_dir**: `FirstClusterOfRootDirectory`를 LE 변환해서 복사
+- **sbi->dentries_per_clu**: `cluster_size_bits - DENTRY_SIZE_BITS`를 이용해서 계산 (1 << result)
+- **sbi->vol_flags**: `VolumeFlags`를 LE 변환해서 복사
+- **sbi->vol_flags_persistent**: `vol_flags & (VOLUME_DIRTY | MEDIA_FAILURE)` 마스킹
+- **sbi->clu_srch_ptr**: `EXFAT_FIRST_CLUSTER` 상수로 초기화
+
+```
+/* check consistencies */
+if ((u64)sbi->num_FAT_sectors << p_boot->sect_size_bits <
+	(u64)sbi->num_clusters * 4) {
+	exfat_err(sb, "bogus fat length");
+	return -EINVAL;
+}
+```
+exFAT에서 각 클러스터는 FAT에서 4바이트를 차지
+- Left: 실제 FAT 크기. `num_FAT_sectors`는 FAT가 차지하는 섹터 수. 이걸 `sect_size_bits`만큼 시프트 레프트 하면 결국 FAT 테이블의 실제 크기를 의미
+- Right: 클러스터 당 4바이트 x 클러스터 개수 => 모든 클러스터를 표현하는데 필요한 최소 바이트
+
+즉, 실제 FAT 크기 > 필요한 최소 크기 인지를 확인하는 부분
+
+```
+if (sbi->data_start_sector <
+	(u64)sbi->FAT1_start_sector +
+	(u64)sbi->num_FAT_sectors * p_boot->num_fats) {
+	exfat_err(sb, "bogus data start sector");
+	return -EINVAL;
+}
+```
+- Left: 데이터 영역 시작 위치
+- Right: FAT 영역의 끝 위치(FAT 개수 2개인 경우도 처리 가능)
+두 영역이 겹치면 데이터 영역과 FAT가 겹친다는 뜻!!
+
+```
+sb->s_maxbytes = (u64)(sbi->num_clusters - EXFAT_RESERVED_CLUSTERS) <<
+	sbi->cluster_size_bits;
+```
+- `num_clusters - 2`: 사용 가능한 클러스터 수(0, 1은 제외)
+- `<< cluster_size_bits`: 클러스터를 바이트로 변환
+이론적으로 가능한 파일의 최대 크기를 알려주는 과정
+
+#### exfat_verify_boot_region
+```
+u32 exfat_calc_chksum32(void *data, int len, u32 chksum, int type)
+{
+	int i;
+	u8 *c = (u8 *)data;
+
+	for (i = 0; i < len; i++, c++) {
+		if (unlikely(type == CS_BOOT_SECTOR &&
+			     (i == 106 || i == 107 || i == 112)))
+			continue;
+		chksum = ((chksum << 31) | (chksum >> 1)) + *c;
+	}
+	return chksum;
+}
+```
+`fs/exfat/misc.c`에 있는 체크섬 계산 알고리즘이다. 
+- u32 chksum: 32비트 체크섬 변수
+데이터를 한바이트씩 읽으면서, 이전에 계산된 체크섬 값을 오른쪽으로 한 칸 돌리고, 거기에 현재 읽은 바이트 값을 더하는 계산을 반복하고 있다. 중간에 continue 하는 부분은 checksum 계산에서 제외되는 `PercentInUse`와 `VolumeFlags` 부분이다. 
+
+```
+for (sn = 0; sn < 11; sn++) {
+	bh = sb_bread(sb, sn);
+	if (!bh)
+		return -EIO;
+
+	if (sn != 0 && sn <= 8) {
+		/* extended boot sector sub-regions */
+		p_sig = (__le32 *)&bh->b_data[sb->s_blocksize - 4];
+		if (le32_to_cpu(*p_sig) != EXBOOT_SIGNATURE)
+			exfat_warn(sb, "Invalid exboot-signature(sector = %d): 0x%08x",
+					sn, le32_to_cpu(*p_sig));
+	}
+
+	chksum = exfat_calc_chksum32(bh->b_data, sb->s_blocksize,
+		chksum, sn ? CS_DEFAULT : CS_BOOT_SECTOR);
+	brelse(bh);
+}
+```
+체크섬을 계산하는 부분이다. Main Boot Sector의 0번부터 10번 섹터까지 순회를 하면서, 각 섹터마다 읽고 체크섬 계산을 반복시키면서 누적한다. 계산하면서 extended 영역에 대한 시그니처 검사도 같이 진행한다. 물론 시그니처가 틀려도 바로 실패로 빠지지는 않는다.
+
+```
+/* boot checksum sub-regions */
+bh = sb_bread(sb, sn);
+if (!bh)
+	return -EIO;
+
+for (i = 0; i < sb->s_blocksize; i += sizeof(u32)) {
+	p_chksum = (__le32 *)&bh->b_data[i];
+	if (le32_to_cpu(*p_chksum) != chksum) {
+		exfat_err(sb, "Invalid boot checksum (boot checksum : 0x%08x, checksum : 0x%08x)",
+				le32_to_cpu(*p_chksum), chksum);
+		brelse(bh);
+		return -EINVAL;
+	}
+}
+```
+이제는 11번 섹터를 읽어온 다음(체크섬 섹터), 계산한 값과 대조해가면서 섹터 전체의 값들이 완벽하게 일치하는지 확인한다. 
+
+#### exfat_create_upcase_table
+```
+clu.dir = sbi->root_dir;
+clu.flags = ALLOC_FAT_CHAIN;
+```
+먼저 루트 디렉터리를 초기화 해주고 있다.
+
+```
+while (clu.dir != EXFAT_EOF_CLUSTER) {
+	for (i = 0; i < sbi->dentries_per_clu; i++) {
+		ep = exfat_get_dentry(sb, &clu, i, &bh);
+		if (!ep)
+			return -EIO;
+
+		type = exfat_get_entry_type(ep);
+		if (type == TYPE_UNUSED) {
+			brelse(bh);
+			break;
+		}
+
+		if (type != TYPE_UPCASE) {
+			brelse(bh);
+			continue;
+		}
+
+		tbl_clu  = le32_to_cpu(ep->dentry.upcase.start_clu);
+		tbl_size = le64_to_cpu(ep->dentry.upcase.size);
+
+		sector = exfat_cluster_to_sector(sbi, tbl_clu);
+		num_sectors = ((tbl_size - 1) >> blksize_bits) + 1;
+		ret = exfat_load_upcase_table(sb, sector, num_sectors,
+			le32_to_cpu(ep->dentry.upcase.checksum));
+
+		brelse(bh);
+		if (ret && ret != -EIO) {
+			/* free memory from exfat_load_upcase_table call */
+			exfat_free_upcase_table(sbi);
+			goto load_default;
+		}
+
+		/* load successfully */
+		return ret;
+	}
+
+	if (exfat_get_next_cluster(sb, &(clu.dir)))
+		return -EIO;
+}
+```
+위의 반복문은 **루트 디렉터리의 클러스터 체인 전체** 를 순회하고 있다. 외부 루프는 클러스터 단위로 돌고 있고, 내부 루프에서는 엔트리 단위로 돌고 있다. 루트 디렉토리의 클러스터 체인의 모든 클러스터의 모든 엔트리를 확인해서 **upcase entry** 를 찾고 있다. 
+
+그리고 upcase 테이블을 찾으면 메모리에 로드한다.
+```
+tbl_clu  = le32_to_cpu(ep->dentry.upcase.start_clu);
+tbl_size = le64_to_cpu(ep->dentry.upcase.size);
+
+sector = exfat_cluster_to_sector(sbi, tbl_clu);
+num_sectors = ((tbl_size - 1) >> blksize_bits) + 1;
+ret = exfat_load_upcase_table(sb, sector, num_sectors,
+    le32_to_cpu(ep->dentry.upcase.checksum));
+```
+
+#### exfat_cound_used_clusters
+```
+int exfat_count_used_clusters(struct super_block *sb, unsigned int *ret_count)
+{
+	struct exfat_sb_info *sbi = EXFAT_SB(sb);
+	unsigned int count = 0;
+	unsigned int i, map_i = 0, map_b = 0;
+	unsigned int total_clus = EXFAT_DATA_CLUSTER_COUNT(sbi);
+	unsigned int last_mask = total_clus & (BITS_PER_LONG - 1);
+	unsigned long *bitmap, clu_bits;
+
+	total_clus &= ~last_mask;
+	for (i = 0; i < total_clus; i += BITS_PER_LONG) {
+		bitmap = (void *)(sbi->vol_amap[map_i]->b_data + map_b);
+		count += hweight_long(*bitmap);
+		map_b += sizeof(long);
+		if (map_b >= (unsigned int)sb->s_blocksize) {
+			map_i++;
+			map_b = 0;
+		}
+	}
+
+	if (last_mask) {
+		bitmap = (void *)(sbi->vol_amap[map_i]->b_data + map_b);
+		clu_bits = lel_to_cpu(*(__le_long *)bitmap);
+		count += hweight_long(clu_bits & BITMAP_LAST_WORD_MASK(last_mask));
+	}
+
+	*ret_count = count;
+	return 0;
+}
+```
+Allocation Bitmap을 읽으면서 비트 카운팅을 통해 전체 파일 시스템의 사용량을 계산하는 함수이다.
